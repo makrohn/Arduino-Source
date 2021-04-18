@@ -13,6 +13,8 @@
 #include "Common/Qt/StringException.h"
 #include "Common/Qt/QtJsonTools.h"
 #include "ClientSource/Connection/PABotBase.h"
+#include "CommonFramework/Tools/StatsDatabase.h"
+#include "CommonFramework/PersistentSettings.h"
 #include "CommonFramework/Windows/MainWindow.h"
 #include "RunnableSwitchProgram.h"
 
@@ -48,19 +50,12 @@ RunnableProgram::RunnableProgram(
     , m_setup(nullptr)
 {}
 void RunnableProgram::from_json(const QJsonValue& json){
-    try{
-        const QJsonObject& obj = json_get_object(json_cast_object(json), m_name);
-        m_setup->load_json(json_get_value(obj, "SwitchSetup"));
-        for (auto& item : m_options){
-            if (!item.second.isEmpty()){
-                QJsonValue value = json_get_value(obj, item.second);
-                item.first->load_json(value);
-            }
+    const QJsonObject& obj = json_get_object_nothrow(json.toObject(), m_name);
+    m_setup->load_json(json_get_value_nothrow(obj, "SwitchSetup"));
+    for (auto& item : m_options){
+        if (!item.second.isEmpty()){
+            item.first->load_json(json_get_value_nothrow(obj, item.second));
         }
-    }catch (const StringException& str){
-        cout << str.message().toUtf8().data() << endl;
-    }catch (...){
-        cout << "Failed to catch." << endl;
     }
 }
 QJsonValue RunnableProgram::to_json() const{
@@ -96,6 +91,7 @@ QWidget* RunnableProgram::make_ui(MainWindow& window){
 
 RunnableProgramUI::RunnableProgramUI(RunnableProgram& factory, MainWindow& window)
     : RightPanelUI(factory)
+    , m_name(factory.name())
     , m_window(window)
     , m_logger(window.output_window(), "Program")
     , m_setup(nullptr)
@@ -183,7 +179,13 @@ void RunnableProgramUI::make_body(QWidget& parent, QVBoxLayout& layout){
     m_status_bar->setVisible(false);
     m_status_bar->setAlignment(Qt::AlignCenter);
     layout.addWidget(m_status_bar);
-    m_status_bar->setText("<b>Encounters: 1,267 - Corrections: 0 - Star Shinies: 1 - Square Shinies: 0</b>");
+//    m_status_bar->setText("<b>Encounters: 1,267 - Corrections: 0 - Star Shinies: 1 - Square Shinies: 0</b>");
+    QFont font = m_status_bar->font();
+//    cout << font.pointSize() << endl;
+    int font_size = font.pointSize();
+    font.setPointSize(font_size + font_size / 2);
+    m_status_bar->setFont(font);
+    update_historical_stats();
 
     QGroupBox* actions_widget = new QGroupBox("Actions", &parent);
     layout.addWidget(actions_widget);
@@ -319,6 +321,19 @@ void RunnableProgramUI::on_stop(){
 void RunnableProgramUI::reset_connections(){
     if (m_setup) m_setup->reset_serial();
 }
+void RunnableProgramUI::update_historical_stats(){
+    RunnableProgram& factory = static_cast<RunnableProgram&>(m_factory);
+    m_stats = factory.make_stats();
+    if (m_stats){
+        settings.stat_sets.open_from_file(settings.stats_file);
+        StatList& list = settings.stat_sets[m_name.toUtf8().data()];
+        if (list.size() != 0){
+            list.aggregate(*m_stats);
+        }
+        m_status_bar->setText(m_stats->to_str().c_str());
+        m_status_bar->setVisible(true);
+    }
+}
 void RunnableProgramUI::set_status(QString status){
     if (status.size() <= 0){
         m_status_bar->setVisible(false);
@@ -329,14 +344,31 @@ void RunnableProgramUI::set_status(QString status){
     }
 }
 
+void RunnableProgramUI::show_stats_warning() const{
+    QMessageBox box;
+    box.critical(
+        nullptr,
+        "Error",
+        "Unable to update stats file. You will need to do this manually."
+    );
+}
+
 void RunnableProgramUI::run_program(){
     if (m_state.load(std::memory_order_acquire) != ProgramState::RUNNING){
         return;
     }
 
+    RunnableProgram& factory = static_cast<RunnableProgram&>(m_factory);
+    std::unique_ptr<StatsTracker> current_stats = factory.make_stats();
+
+    std::string program_name = m_name.toUtf8().data();
+
+    //  Update historical stats.
+    update_historical_stats();
+
     try{
-        m_logger.log("Starting Program...");
-        program();
+        m_logger.log("<b>Starting Program: " + m_name + "</b>");
+        program(current_stats.get(), m_stats.get());
         m_setup->wait_for_all_requests();
         m_logger.log("Ending Program...");
     }catch (PokemonAutomation::CancelledException&){
@@ -345,10 +377,30 @@ void RunnableProgramUI::run_program(){
         signal_error(str);
     }
 
+
+    //  Update historical stats.
+    if (current_stats){
+        bool ok = StatSet::update_file(settings.stats_file, program_name, *current_stats);
+        if (ok){
+            m_logger.log("Stats successfully saved!", "Blue");
+        }else{
+            m_logger.log("Unable to save stats.", "Red");
+            QMetaObject::invokeMethod(
+                this,
+                "show_stats_warning",
+                Qt::AutoConnection
+            );
+//            show_stats_warning();
+        }
+        settings.stat_sets.open_from_file(settings.stats_file);
+    }
+
+
     m_logger.log("Entering STOPPED state.");
     m_state.store(ProgramState::STOPPED, std::memory_order_release);
     signal_reset();
     m_logger.log("Now in STOPPED state.");
+//    cout << "Now in STOPPED state." << endl;
 }
 
 BotBase& RunnableProgramUI::sanitize_botbase(BotBase* botbase){

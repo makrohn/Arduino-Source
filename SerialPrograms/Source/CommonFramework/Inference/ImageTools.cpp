@@ -44,8 +44,8 @@ InferenceBox translate_to_parent(
 ){
     double width = original_image.width();
     double height = original_image.height();
-    int box_x = (int)(width * inference_box.x + 0.5);
-    int box_y = (int)(height * inference_box.y + 0.5);
+    pxint_t box_x = (pxint_t)(width * inference_box.x + 0.5);
+    pxint_t box_y = (pxint_t)(height * inference_box.y + 0.5);
     return InferenceBox(
         (box_x + box.min_x) / width,
         (box_y + box.min_y) / height,
@@ -54,12 +54,15 @@ InferenceBox translate_to_parent(
     );
 }
 
+QImage extract_box(const QImage& image, const PixelBox& box){
+    return image.copy(box.min_x, box.min_y, box.width(), box.height());
+}
 QImage extract_box(const QImage& image, const InferenceBox& box){
     return image.copy(
-        (int)(image.width() * box.x + 0.5),
-        (int)(image.height() * box.y + 0.5),
-        (int)(image.width() * box.width + 0.5),
-        (int)(image.height() * box.height + 0.5)
+        (pxint_t)(image.width() * box.x + 0.5),
+        (pxint_t)(image.height() * box.y + 0.5),
+        (pxint_t)(image.width() * box.width + 0.5),
+        (pxint_t)(image.height() * box.height + 0.5)
     );
 }
 
@@ -76,8 +79,8 @@ double image_diff(const QImage& x, const QImage& y){
 
     double sum = 0;
 
-    int width = x.width();
-    int height = x.height();
+    pxint_t width = x.width();
+    pxint_t height = x.height();
     for (int r = 0; r < height; r++){
         for (int c = 0; c < width; c++){
             sum += euclidean_distance(x.pixel(c, r), y.pixel(c, r));
@@ -88,11 +91,11 @@ double image_diff(const QImage& x, const QImage& y){
 }
 
 FloatPixel pixel_average(const QImage& image){
-    int w = image.width();
-    int h = image.height();
+    pxint_t w = image.width();
+    pxint_t h = image.height();
     FloatPixel sum;
-    for (int r = 0; r < h; r++){
-        for (int c = 0; c < w; c++){
+    for (pxint_t r = 0; r < h; r++){
+        for (pxint_t c = 0; c < w; c++){
             sum += FloatPixel(image.pixel(c, r));
         }
     }
@@ -113,15 +116,15 @@ FloatPixel pixel_average_normalized(const QImage& image){
 
 
 FloatPixel pixel_stddev(const QImage& image){
-    int w = image.width();
-    int h = image.height();
+    pxint_t w = image.width();
+    pxint_t h = image.height();
     if (w * h <= 1){
         return FloatPixel();
     }
     FloatPixel sum;
     FloatPixel sqr_sum;
-    for (int r = 0; r < h; r++){
-        for (int c = 0; c < w; c++){
+    for (pxint_t r = 0; r < h; r++){
+        for (pxint_t c = 0; c < w; c++){
             FloatPixel p(image.pixel(c, r));
             sum += p;
             sqr_sum += p * p;
@@ -137,21 +140,21 @@ FloatPixel pixel_stddev(const QImage& image){
 }
 
 ImageStats pixel_stats(const QImage& image){
-    int w = image.width();
-    int h = image.height();
+    pxint_t w = image.width();
+    pxint_t h = image.height();
     if (w * h <= 1){
         return ImageStats();
     }
     FloatPixel sum;
     FloatPixel sqr_sum;
-    for (int r = 0; r < h; r++){
-        for (int c = 0; c < w; c++){
+    for (pxint_t r = 0; r < h; r++){
+        for (pxint_t c = 0; c < w; c++){
             FloatPixel p(image.pixel(c, r));
             sum += p;
             sqr_sum += p * p;
         }
     }
-    size_t total = w * h;
+    size_t total = (size_t)w * (size_t)h;
     FloatPixel variance = (sqr_sum - sum*sum / total) / (total - 1);
     return ImageStats{
         sum / total,
@@ -161,9 +164,43 @@ ImageStats pixel_stats(const QImage& image){
             std::sqrt(variance.b)
         )
     };
-
+}
+ImageStats object_stats(const QImage& image, const FillMatrix& matrix, const FillGeometry& object){
+    pxint_t w = image.width();
+    pxint_t h = image.height();
+    if (w * h <= 1){
+        return ImageStats();
+    }
+    FloatPixel sum;
+    FloatPixel sqr_sum;
+    for (pxint_t r = 0; r < h; r++){
+        for (pxint_t c = 0; c < w; c++){
+            if (matrix[r][c] == object.id){
+                FloatPixel p(image.pixel(c, r));
+                sum += p;
+                sqr_sum += p * p;
+            }
+        }
+    }
+    size_t total = object.area;
+    FloatPixel variance = (sqr_sum - sum*sum / total) / (total - 1);
+    return ImageStats{
+        sum / total,
+        FloatPixel(
+            std::sqrt(variance.r),
+            std::sqrt(variance.g),
+            std::sqrt(variance.b)
+        )
+    };
 }
 
+
+bool is_black(const QImage& image, double max_rgb_sum, double max_stddev_sum){
+    ImageStats stats = pixel_stats(image);
+    double average = stats.average.sum();
+    double stddev = stats.stddev.sum();
+    return average <= max_rgb_sum && stddev <= max_stddev_sum;
+}
 
 
 

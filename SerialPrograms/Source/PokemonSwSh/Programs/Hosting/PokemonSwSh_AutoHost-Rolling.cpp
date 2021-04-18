@@ -11,6 +11,7 @@
 #include "Common/PokemonSwSh/PokemonSwShGameEntry.h"
 #include "Common/PokemonSwSh/PokemonSwShAutoHosts.h"
 #include "CommonFramework/Inference/BlackScreenDetector.h"
+#include "PokemonSwSh/Programs/PokemonSwSh_StartGame.h"
 #include "PokemonSwSh_DenTools.h"
 #include "PokemonSwSh_LobbyWait.h"
 #include "PokemonSwSh_AutoHost-Rolling.h"
@@ -48,6 +49,10 @@ AutoHostRolling::AutoHostRolling()
     , DYNAMAX(
         "<b>1st Move Dynamax:</b><br>Dynamax on first move. (only applies if above option is non-zero)",
         true
+    )
+    , TROLL_HOSTING(
+        "<b>Troll Hosting:</b> (requires 1st move select)<br>0 disables the troll hosting option, 1 attacks the first ally, 2 attacks the second one, 3 attacks the third one. Dynamaxing will disable this option.",
+        0, 0, 3
     )
     , ALTERNATE_GAMES(
         "<b>Alternate Games:</b><br>Alternate hosting between 1st and 2nd games. Host from both Sword and Shield.",
@@ -91,6 +96,7 @@ AutoHostRolling::AutoHostRolling()
     m_options.emplace_back(&EXTRA_DELAY_BETWEEN_RAIDS, "EXTRA_DELAY_BETWEEN_RAIDS");
     m_options.emplace_back(&MOVE_SLOT, "MOVE_SLOT");
     m_options.emplace_back(&DYNAMAX, "DYNAMAX");
+    m_options.emplace_back(&TROLL_HOSTING, "TROLL_HOSTING");
     m_options.emplace_back(&ALTERNATE_GAMES, "ALTERNATE_GAMES");
     m_options.emplace_back(&TOUCH_DATE_INTERVAL, "TOUCH_DATE_INTERVAL");
     m_options.emplace_back(&m_internet_settings, "");
@@ -121,7 +127,7 @@ void AutoHostRolling::program(SingleSwitchProgramEnvironment& env) const{
 
     char first = true;
     for (uint32_t raids = 0;; raids++){
-        env.logger.log("Raids Completed: " + tostr_u_commas(raids));
+        env.log("Raids Completed: " + tostr_u_commas(raids));
 
         roll_den(ENTER_ONLINE_DEN_DELAY, OPEN_ONLINE_DEN_LOBBY_DELAY, SKIPS, CATCHABILITY);
 
@@ -143,7 +149,7 @@ void AutoHostRolling::program(SingleSwitchProgramEnvironment& env) const{
             for (size_t c = 0; c < 8; c++){
                 str[c] = code[c] + '0';
             }
-            env.logger.log("Next Raid Code: " + std::string(str, sizeof(str)));
+            env.log("Next Raid Code: " + std::string(str, sizeof(str)));
             pbf_press_button(BUTTON_PLUS, 5, 145);
             enter_digits(8, code);
             pbf_wait(180);
@@ -153,7 +159,7 @@ void AutoHostRolling::program(SingleSwitchProgramEnvironment& env) const{
 
         //  Accept friend requests while we wait.
         raid_lobby_wait(
-            env.console, env.logger,
+            env.console, env.logger(),
             HOST_ONLINE,
             FRIEND_ACCEPT_USER_SLOT,
             lobby_wait_delay
@@ -170,11 +176,11 @@ void AutoHostRolling::program(SingleSwitchProgramEnvironment& env) const{
             pbf_mash_button(BUTTON_A, 3 * TICKS_PER_SECOND);
             env.console.botbase().wait_for_all_requests();
 
-            BlackScreenDetector black_screen(env.console, env.logger);
+            BlackScreenDetector black_screen(env.console, env.logger());
             uint32_t now = start;
             while (now - start < RAID_START_TO_EXIT_DELAY){
                 if (black_screen.black_is_over()){
-                    env.logger.log("Raid has Started!", "blue");
+                    env.log("Raid has Started!", "blue");
                     break;
                 }
                 pbf_mash_button(BUTTON_A, TICKS_PER_SECOND);
@@ -198,6 +204,15 @@ void AutoHostRolling::program(SingleSwitchProgramEnvironment& env) const{
                 pbf_press_dpad(DPAD_DOWN, 20, 30);
             }
             pbf_press_button(BUTTON_A, 20, 80);
+
+            // Disable the troll hosting option if the dynamax is set to TRUE.
+            if (!DYNAMAX && TROLL_HOSTING > 0){
+                pbf_press_dpad(DPAD_DOWN, 20, 80);
+                for (uint8_t c = 0; c < TROLL_HOSTING; c++){
+                    pbf_press_dpad(DPAD_RIGHT, 20, 80);
+                }
+            }
+
             pbf_press_button(BUTTON_A, 20, 980);
         }
 
@@ -212,7 +227,9 @@ void AutoHostRolling::program(SingleSwitchProgramEnvironment& env) const{
             last_touch += TOUCH_DATE_INTERVAL;
         }
         rollback_date_from_home(SKIPS);
-        start_game_from_home(
+
+        start_game_from_home_with_inference(
+            env, env.console,
             TOLERATE_SYSTEM_UPDATE_MENU_SLOW,
             0, 0,
             BACKUP_SAVE

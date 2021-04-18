@@ -4,6 +4,7 @@
  *
  */
 
+#include "PokemonSwSh/Programs/PokemonSwSh_StartGame.h"
 #include "PokemonSwSh_DenTools.h"
 #include "PokemonSwSh_DenRoller.h"
 
@@ -13,7 +14,7 @@ namespace PokemonSwSh{
 
 DenRoller::DenRoller()
     : SingleSwitchProgram(
-        FeedbackType::NONE, PABotBaseLevel::PABOTBASE_12KB,
+        FeedbackType::OPTIONAL_, PABotBaseLevel::PABOTBASE_12KB,
         "Den Roller",
         "NativePrograms/DenRoller.md",
         "Roll den to the N'th day, SR and repeat."
@@ -28,6 +29,7 @@ DenRoller::DenRoller()
     )
 {
     m_options.emplace_back(&SKIPS, "SKIPS");
+    m_options.emplace_back(&CATCHABILITY, "CATCHABILITY");
     m_options.emplace_back(&VIEW_TIME, "VIEW_TIME");
 }
 
@@ -58,7 +60,11 @@ void DenRoller::program(SingleSwitchProgramEnvironment& env) const{
         pbf_press_button(BUTTON_HOME, 10, GAME_TO_HOME_DELAY_SAFE - 10);
 
         rollback_date_from_home(SKIPS);
-        reset_game_from_home(TOLERATE_SYSTEM_UPDATE_MENU_SLOW, 0, false);
+//        reset_game_from_home(TOLERATE_SYSTEM_UPDATE_MENU_SLOW);
+        reset_game_from_home_with_inference(
+            env, env.console,
+            TOLERATE_SYSTEM_UPDATE_MENU_SLOW
+        );
     }
 
     end_program_callback();

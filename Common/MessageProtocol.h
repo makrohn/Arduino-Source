@@ -153,10 +153,10 @@
 //      (version / 100) must be the same on both server and client.
 //      (version % 100) can be higher on server than client.
 //
-#define PABB_PROTOCOL_VERSION           2021030200
+#define PABB_PROTOCOL_VERSION           2021032200
 
 //  Program versioning doesn't matter. It's just for informational purposes.
-#define PABB_PROGRAM_VERSION            2021031900
+#define PABB_PROGRAM_VERSION            2021032200
 
 #define PABB_BAUD_RATE                  115200
 #define PABB_RETRANSMIT_DELAY_MILLIS    80
@@ -252,6 +252,7 @@ typedef struct{
 ////////////////////////////////////////////////////////////////////////////////
 //  Requests
 #define PABB_MSG_SEQNUM_RESET                   0x40
+//  After you send this message, the next seqnum you should use is (seqnum + 1).
 typedef struct{
     seqnum_t seqnum;
 } PABB_PACK pabb_MsgInfoSeqnumReset;
@@ -277,6 +278,7 @@ typedef struct{
 } PABB_PACK pabb_system_clock;
 
 #define PABB_MSG_REQUEST_COMMAND_FINISHED       0x45
+//  When you receive this message, you must ack it with PABB_MSG_ACK_REQUEST.
 typedef struct{
     seqnum_t seqnum;
     seqnum_t seq_of_original_command;

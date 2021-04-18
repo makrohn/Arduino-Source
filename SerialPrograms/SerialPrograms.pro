@@ -6,27 +6,37 @@ QT += multimediawidgets
 
 greaterThan(QT_MAJOR_VERSION, 4): QT += widgets
 
-CONFIG += c++14
 INCLUDEPATH += ../
 INCLUDEPATH += Source/
 
-#CONFIG += force_debug_info
-
-QMAKE_CXXFLAGS += -msse4.2
-QMAKE_CXXFLAGS += -Wnarrowing
-QMAKE_CXXFLAGS += -Wno-unused-parameter
-QMAKE_CXXFLAGS += -Wno-unused-function
-QMAKE_CXXFLAGS += -Wno-missing-field-initializers
+CONFIG += force_debug_info
 
 # You can make your code fail to compile if it uses deprecated APIs.
 # In order to do so, uncomment the following line.
 #DEFINES += QT_DISABLE_DEPRECATED_BEFORE=0x060000    # disables all the APIs deprecated before Qt 6.0.0
 
 
-# Link Tesseract C API for Windows.
-DEFINES += TESS_IMPORTS
-DEFINES += WIN32
-LIBS += ../SerialPrograms/libtesseractc.lib
+win32-g++{
+    CONFIG += c++14
+
+    QMAKE_CXXFLAGS += -msse4.2
+#    QMAKE_CXXFLAGS += -Wnarrowing
+#    QMAKE_CXXFLAGS += -Wno-unused-parameter
+#    QMAKE_CXXFLAGS += -Wno-unused-function
+#    QMAKE_CXXFLAGS += -Wno-missing-field-initializers
+
+    DEFINES += TESS_IMPORTS
+    DEFINES += WIN32
+    LIBS += ../SerialPrograms/libtesseractc.lib
+}
+win32-msvc{
+    QMAKE_CXXFLAGS += /std:c++latest
+
+
+    DEFINES += TESS_IMPORTS
+    DEFINES += WIN32
+    LIBS += ../SerialPrograms/libtesseractc.lib
+}
 
 
 SOURCES += \
@@ -58,8 +68,13 @@ SOURCES += \
     ../Common/SwitchFramework/FrameworkSettings.cpp \
     ../Common/SwitchFramework/Switch_PushButtons.cpp \
     ../Common/SwitchRoutines/SwitchDigitEntry.cpp \
+    Source/CommonFramework/CrashDump.cpp \
     Source/CommonFramework/Globals.cpp \
+    Source/CommonFramework/Inference/AnomalyDetector.cpp \
     Source/CommonFramework/Inference/BlackScreenDetector.cpp \
+    Source/CommonFramework/Inference/ColorClustering.cpp \
+    Source/CommonFramework/Inference/FillGeometry.cpp \
+    Source/CommonFramework/Inference/FillMatrix.cpp \
     Source/CommonFramework/Inference/ImageTools.cpp \
     Source/CommonFramework/Main.cpp \
     Source/CommonFramework/Options/FixedCode.cpp \
@@ -69,6 +84,9 @@ SOURCES += \
     Source/CommonFramework/Panels/SettingsPanel.cpp \
     Source/CommonFramework/PersistentSettings.cpp \
     Source/CommonFramework/Tools/BotBaseHandle.cpp \
+    Source/CommonFramework/Tools/ProgramEnvironment.cpp \
+    Source/CommonFramework/Tools/StatsDatabase.cpp \
+    Source/CommonFramework/Tools/StatsTracking.cpp \
     Source/CommonFramework/Widgets/CameraSelector.cpp \
     Source/CommonFramework/Widgets/ProgramList.cpp \
     Source/CommonFramework/Widgets/SerialSelector.cpp \
@@ -92,8 +110,19 @@ SOURCES += \
     Source/NintendoSwitch/Programs/PreventSleep.cpp \
     Source/NintendoSwitch/Programs/SwitchViewer.cpp \
     Source/PanelList.cpp \
+    Source/PokemonSwSh/Inference/PokemonSwSh_BattleMenuDetector.cpp \
     Source/PokemonSwSh/Inference/PokemonSwSh_BeamSetter.cpp \
+    Source/PokemonSwSh/Inference/PokemonSwSh_FishingDetector.cpp \
+    Source/PokemonSwSh/Inference/PokemonSwSh_MarkFinder.cpp \
+    Source/PokemonSwSh/Inference/PokemonSwSh_RaidCatchDetector.cpp \
     Source/PokemonSwSh/Inference/PokemonSwSh_RaidLobbyReader.cpp \
+    Source/PokemonSwSh/Inference/PokemonSwSh_StartBattleDetector.cpp \
+    Source/PokemonSwSh/Inference/PokemonSwSh_SummaryShinySymbolDetector.cpp \
+    Source/PokemonSwSh/Inference/ShinyDetection/PokemonSwSh_ShinyEncounterDetector.cpp \
+    Source/PokemonSwSh/Inference/ShinyDetection/PokemonSwSh_ShinyTrigger.cpp \
+    Source/PokemonSwSh/Inference/ShinyDetection/PokemonSwSh_SparkleTrigger.cpp \
+    Source/PokemonSwSh/Inference/ShinyDetection/PokemonSwSh_SquareDetector.cpp \
+    Source/PokemonSwSh/Inference/ShinyDetection/PokemonSwSh_SquareTrigger.cpp \
     Source/PokemonSwSh/Options/Catchability.cpp \
     Source/PokemonSwSh/Options/EggStepCount.cpp \
     Source/PokemonSwSh/Options/RegiSelector.cpp \
@@ -104,8 +133,20 @@ SOURCES += \
     Source/PokemonSwSh/Programs/BasicPrograms/PokemonSwSh_SurpriseTrade.cpp \
     Source/PokemonSwSh/Programs/BasicPrograms/PokemonSwSh_TradeBot.cpp \
     Source/PokemonSwSh/Programs/BasicPrograms/PokemonSwSh_TurboA.cpp \
+    Source/PokemonSwSh/Programs/PokemonSwSh_OverworldTrajectory.cpp \
+    Source/PokemonSwSh/Programs/PokemonSwSh_StartGame.cpp \
+    Source/PokemonSwSh/Programs/ShinyHunting/PokemonSwSh_EncounterTracker.cpp \
     Source/PokemonSwSh/Programs/ShinyHunting/PokemonSwSh_MultiGameFossil.cpp \
     Source/PokemonSwSh/Programs/ShinyHunting/PokemonSwSh_ShinyHunt-Regi.cpp \
+    Source/PokemonSwSh/Programs/ShinyHunting/PokemonSwSh_ShinyHuntAutonomous-BerryTree.cpp \
+    Source/PokemonSwSh/Programs/ShinyHunting/PokemonSwSh_ShinyHuntAutonomous-Fishing.cpp \
+    Source/PokemonSwSh/Programs/ShinyHunting/PokemonSwSh_ShinyHuntAutonomous-IoATrade.cpp \
+    Source/PokemonSwSh/Programs/ShinyHunting/PokemonSwSh_ShinyHuntAutonomous-Overworld.cpp \
+    Source/PokemonSwSh/Programs/ShinyHunting/PokemonSwSh_ShinyHuntAutonomous-Regi.cpp \
+    Source/PokemonSwSh/Programs/ShinyHunting/PokemonSwSh_ShinyHuntAutonomous-Regigigas2.cpp \
+    Source/PokemonSwSh/Programs/ShinyHunting/PokemonSwSh_ShinyHuntAutonomous-StrongSpawn.cpp \
+    Source/PokemonSwSh/Programs/ShinyHunting/PokemonSwSh_ShinyHuntAutonomous-SwordsOfJustice.cpp \
+    Source/PokemonSwSh/Programs/ShinyHunting/PokemonSwSh_ShinyHuntAutonomous-Whistling.cpp \
     Source/PokemonSwSh/Programs/ShinyHunting/PokemonSwSh_ShinyHuntUnattended-IoATrade.cpp \
     Source/PokemonSwSh/Programs/ShinyHunting/PokemonSwSh_ShinyHuntUnattended-Regi.cpp \
     Source/PokemonSwSh/Programs/ShinyHunting/PokemonSwSh_ShinyHuntUnattended-Regigigas2.cpp \
@@ -136,7 +177,8 @@ SOURCES += \
     Source/PokemonSwSh/Programs/QoLMacros/PokemonSwSh_FastCodeEntry.cpp \
     Source/PokemonSwSh/Programs/QoLMacros/PokemonSwSh_FriendSearchDisconnect.cpp \
     Source/PokemonSwSh/Programs/ShinyHunting/PokemonSwSh_ShinyHuntUnattended-SwordsOfJustice.cpp \
-    Source/PokemonSwSh/Programs/TestProgram.cpp
+    Source/PokemonSwSh/Programs/TestProgram.cpp \
+    Source/PokemonSwSh/ShinyHuntTracker.cpp
 
 HEADERS += \
     ../ClientSource/Connection/BotBase.h \
@@ -154,6 +196,7 @@ HEADERS += \
     ../Common/Clientside/PrettyPrint.h \
     ../Common/Clientside/SpinLock.h \
     ../Common/Clientside/Unicode.h \
+    ../Common/Compiler.h \
     ../Common/MessageProtocol.h \
     ../Common/PokemonSwSh/PokemonProgramIDs.h \
     ../Common/PokemonSwSh/PokemonSettings.h \
@@ -179,11 +222,19 @@ HEADERS += \
     ../Common/SwitchFramework/SwitchControllerDefs.h \
     ../Common/SwitchFramework/Switch_PushButtons.h \
     ../Common/SwitchRoutines/SwitchDigitEntry.h \
+    Source/CommonFramework/CrashDump.h \
     Source/CommonFramework/Globals.h \
+    Source/CommonFramework/Inference/AnomalyDetector.h \
     Source/CommonFramework/Inference/BlackScreenDetector.h \
+    Source/CommonFramework/Inference/ColorClustering.h \
+    Source/CommonFramework/Inference/FillGeometry.h \
+    Source/CommonFramework/Inference/FillMatrix.h \
     Source/CommonFramework/Inference/FloatPixel.h \
     Source/CommonFramework/Inference/ImageTools.h \
+    Source/CommonFramework/Inference/InferenceThrottler.h \
     Source/CommonFramework/Inference/InferenceTypes.h \
+    Source/CommonFramework/Inference/StatAccumulator.h \
+    Source/CommonFramework/Inference/TimeWindowStatTracker.h \
     Source/CommonFramework/Options/BooleanCheckBox.h \
     Source/CommonFramework/Options/ConfigOption.h \
     Source/CommonFramework/Options/FixedCode.h \
@@ -194,9 +245,13 @@ HEADERS += \
     Source/CommonFramework/Panels/RightPanel.h \
     Source/CommonFramework/Panels/SettingsPanel.h \
     Source/CommonFramework/PersistentSettings.h \
+    Source/CommonFramework/Tesseract/capi.h \
+    Source/CommonFramework/Tesseract/platform.h \
     Source/CommonFramework/Tools/ConsoleHandle.h \
     Source/CommonFramework/Tools/Logger.h \
     Source/CommonFramework/Tools/ProgramEnvironment.h \
+    Source/CommonFramework/Tools/StatsDatabase.h \
+    Source/CommonFramework/Tools/StatsTracking.h \
     Source/CommonFramework/Tools/VideoFeed.h \
     Source/CommonFramework/Tools/BotBaseHandle.h \
     Source/CommonFramework/Widgets/CameraSelector.h \
@@ -227,8 +282,20 @@ HEADERS += \
     Source/NintendoSwitch/Programs/SwitchViewer.h \
     Source/NintendoSwitch/Programs/VirtualConsole.h \
     Source/PanelList.h \
+    Source/PokemonSwSh/Inference/PokemonSwSh_BattleMenuDetector.h \
     Source/PokemonSwSh/Inference/PokemonSwSh_BeamSetter.h \
+    Source/PokemonSwSh/Inference/PokemonSwSh_FishingDetector.h \
+    Source/PokemonSwSh/Inference/PokemonSwSh_MarkFinder.h \
+    Source/PokemonSwSh/Inference/PokemonSwSh_RaidCatchDetector.h \
     Source/PokemonSwSh/Inference/PokemonSwSh_RaidLobbyReader.h \
+    Source/PokemonSwSh/Inference/PokemonSwSh_StartBattleDetector.h \
+    Source/PokemonSwSh/Inference/PokemonSwSh_SummaryShinySymbolDetector.h \
+    Source/PokemonSwSh/Inference/ShinyDetection/PokemonSwSh_ShinyEncounterDetector.h \
+    Source/PokemonSwSh/Inference/ShinyDetection/PokemonSwSh_ShinyFilters.h \
+    Source/PokemonSwSh/Inference/ShinyDetection/PokemonSwSh_ShinyTrigger.h \
+    Source/PokemonSwSh/Inference/ShinyDetection/PokemonSwSh_SparkleTrigger.h \
+    Source/PokemonSwSh/Inference/ShinyDetection/PokemonSwSh_SquareDetector.h \
+    Source/PokemonSwSh/Inference/ShinyDetection/PokemonSwSh_SquareTrigger.h \
     Source/PokemonSwSh/Options/Catchability.h \
     Source/PokemonSwSh/Options/EggStepCount.h \
     Source/PokemonSwSh/Options/FossilTable.h \
@@ -241,8 +308,20 @@ HEADERS += \
     Source/PokemonSwSh/Programs/BasicPrograms/PokemonSwSh_SurpriseTrade.h \
     Source/PokemonSwSh/Programs/BasicPrograms/PokemonSwSh_TradeBot.h \
     Source/PokemonSwSh/Programs/BasicPrograms/PokemonSwSh_TurboA.h \
+    Source/PokemonSwSh/Programs/PokemonSwSh_OverworldTrajectory.h \
+    Source/PokemonSwSh/Programs/PokemonSwSh_StartGame.h \
+    Source/PokemonSwSh/Programs/ShinyHunting/PokemonSwSh_EncounterTracker.h \
     Source/PokemonSwSh/Programs/ShinyHunting/PokemonSwSh_MultiGameFossil.h \
     Source/PokemonSwSh/Programs/ShinyHunting/PokemonSwSh_ShinyHunt-Regi.h \
+    Source/PokemonSwSh/Programs/ShinyHunting/PokemonSwSh_ShinyHuntAutonomous-BerryTree.h \
+    Source/PokemonSwSh/Programs/ShinyHunting/PokemonSwSh_ShinyHuntAutonomous-Fishing.h \
+    Source/PokemonSwSh/Programs/ShinyHunting/PokemonSwSh_ShinyHuntAutonomous-IoATrade.h \
+    Source/PokemonSwSh/Programs/ShinyHunting/PokemonSwSh_ShinyHuntAutonomous-Overworld.h \
+    Source/PokemonSwSh/Programs/ShinyHunting/PokemonSwSh_ShinyHuntAutonomous-Regi.h \
+    Source/PokemonSwSh/Programs/ShinyHunting/PokemonSwSh_ShinyHuntAutonomous-Regigigas2.h \
+    Source/PokemonSwSh/Programs/ShinyHunting/PokemonSwSh_ShinyHuntAutonomous-StrongSpawn.h \
+    Source/PokemonSwSh/Programs/ShinyHunting/PokemonSwSh_ShinyHuntAutonomous-SwordsOfJustice.h \
+    Source/PokemonSwSh/Programs/ShinyHunting/PokemonSwSh_ShinyHuntAutonomous-Whistling.h \
     Source/PokemonSwSh/Programs/ShinyHunting/PokemonSwSh_ShinyHuntTools.h \
     Source/PokemonSwSh/Programs/ShinyHunting/PokemonSwSh_ShinyHuntUnattended-IoATrade.h \
     Source/PokemonSwSh/Programs/ShinyHunting/PokemonSwSh_ShinyHuntUnattended-Regi.h \
@@ -279,7 +358,8 @@ HEADERS += \
     Source/PokemonSwSh/Programs/QoLMacros/PokemonSwSh_FriendSearchDisconnect.h \
     Source/PokemonSwSh/Programs/ReleaseHelpers.h \
     Source/PokemonSwSh/Programs/ShinyHunting/PokemonSwSh_ShinyHuntUnattended-SwordsOfJustice.h \
-    Source/PokemonSwSh/Programs/TestProgram.h
+    Source/PokemonSwSh/Programs/TestProgram.h \
+    Source/PokemonSwSh/ShinyHuntTracker.h
 
 # Default rules for deployment.
 qnx: target.path = /tmp/$${TARGET}/bin

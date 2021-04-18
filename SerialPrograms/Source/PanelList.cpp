@@ -36,13 +36,6 @@
 #include "PokemonSwSh/Programs/DateSpamFarmers/PokemonSwSh_DateSpam-StowOnSideFarmer.h"
 #include "PokemonSwSh/Programs/DateSpamFarmers/PokemonSwSh_DateSpam-DailyHighlightFarmer.h"
 
-#include "PokemonSwSh/Programs/ShinyHunting/PokemonSwSh_MultiGameFossil.h"
-#include "PokemonSwSh/Programs/ShinyHunting/PokemonSwSh_ShinyHuntUnattended-Regi.h"
-#include "PokemonSwSh/Programs/ShinyHunting/PokemonSwSh_ShinyHuntUnattended-SwordsOfJustice.h"
-#include "PokemonSwSh/Programs/ShinyHunting/PokemonSwSh_ShinyHuntUnattended-StrongSpawn.h"
-#include "PokemonSwSh/Programs/ShinyHunting/PokemonSwSh_ShinyHuntUnattended-Regigigas2.h"
-#include "PokemonSwSh/Programs/ShinyHunting/PokemonSwSh_ShinyHuntUnattended-IoATrade.h"
-
 #include "PokemonSwSh/Programs/DenHunting/PokemonSwSh_BeamReset.h"
 #include "PokemonSwSh/Programs/DenHunting/PokemonSwSh_PurpleBeamFinder.h"
 #include "PokemonSwSh/Programs/DenHunting/PokemonSwSh_EventBeamFinder.h"
@@ -54,6 +47,23 @@
 #include "PokemonSwSh/Programs/Hosting/PokemonSwSh_DenRoller.h"
 #include "PokemonSwSh/Programs/Hosting/PokemonSwSh_AutoHost-Rolling.h"
 #include "PokemonSwSh/Programs/Hosting/PokemonSwSh_AutoHost-MultiGame.h"
+
+#include "PokemonSwSh/Programs/ShinyHunting/PokemonSwSh_MultiGameFossil.h"
+#include "PokemonSwSh/Programs/ShinyHunting/PokemonSwSh_ShinyHuntUnattended-Regi.h"
+#include "PokemonSwSh/Programs/ShinyHunting/PokemonSwSh_ShinyHuntUnattended-SwordsOfJustice.h"
+#include "PokemonSwSh/Programs/ShinyHunting/PokemonSwSh_ShinyHuntUnattended-StrongSpawn.h"
+#include "PokemonSwSh/Programs/ShinyHunting/PokemonSwSh_ShinyHuntUnattended-Regigigas2.h"
+#include "PokemonSwSh/Programs/ShinyHunting/PokemonSwSh_ShinyHuntUnattended-IoATrade.h"
+
+#include "PokemonSwSh/Programs/ShinyHunting/PokemonSwSh_ShinyHuntAutonomous-Regi.h"
+#include "PokemonSwSh/Programs/ShinyHunting/PokemonSwSh_ShinyHuntAutonomous-SwordsOfJustice.h"
+#include "PokemonSwSh/Programs/ShinyHunting/PokemonSwSh_ShinyHuntAutonomous-StrongSpawn.h"
+#include "PokemonSwSh/Programs/ShinyHunting/PokemonSwSh_ShinyHuntAutonomous-Regigigas2.h"
+#include "PokemonSwSh/Programs/ShinyHunting/PokemonSwSh_ShinyHuntAutonomous-IoATrade.h"
+#include "PokemonSwSh/Programs/ShinyHunting/PokemonSwSh_ShinyHuntAutonomous-BerryTree.h"
+#include "PokemonSwSh/Programs/ShinyHunting/PokemonSwSh_ShinyHuntAutonomous-Whistling.h"
+#include "PokemonSwSh/Programs/ShinyHunting/PokemonSwSh_ShinyHuntAutonomous-Fishing.h"
+#include "PokemonSwSh/Programs/ShinyHunting/PokemonSwSh_ShinyHuntAutonomous-Overworld.h"
 
 #include "PokemonSwSh/Programs/EggPrograms/PokemonSwSh_EggFetcher2.h"
 #include "PokemonSwSh/Programs/EggPrograms/PokemonSwSh_EggHatcher.h"
@@ -131,13 +141,6 @@ const std::vector<std::unique_ptr<RightPanel>>& PROGRAM_LIST(){
     list.emplace_back(new SingleSwitchProgramWrapper<StowOnSideFarmer>(settings.programs));
     list.emplace_back(new SingleSwitchProgramWrapper<DailyHighlightFarmer>(settings.programs));
 
-    list.emplace_back(new SingleSwitchProgramWrapper<MultiGameFossil>(settings.programs));
-    list.emplace_back(new SingleSwitchProgramWrapper<ShinyHuntUnattendedRegi>(settings.programs));
-    list.emplace_back(new SingleSwitchProgramWrapper<ShinyHuntUnattendedSwordsOfJustice>(settings.programs));
-    list.emplace_back(new SingleSwitchProgramWrapper<ShinyHuntUnattendedStrongSpawn>(settings.programs));
-    list.emplace_back(new SingleSwitchProgramWrapper<ShinyHuntUnattendedRegigigas2>(settings.programs));
-    list.emplace_back(new SingleSwitchProgramWrapper<ShinyHuntUnattendedIoATrade>(settings.programs));
-
     list.emplace_back(new SingleSwitchProgramWrapper<BeamReset>(settings.programs));
     list.emplace_back(new SingleSwitchProgramWrapper<PurpleBeamFinder>(settings.programs));
     list.emplace_back(new SingleSwitchProgramWrapper<EventBeamFinder>(settings.programs));
@@ -149,6 +152,25 @@ const std::vector<std::unique_ptr<RightPanel>>& PROGRAM_LIST(){
     list.emplace_back(new SingleSwitchProgramWrapper<DenRoller>(settings.programs));
     list.emplace_back(new SingleSwitchProgramWrapper<AutoHostRolling>(settings.programs));
     list.emplace_back(new SingleSwitchProgramWrapper<AutoHostMultiGame>(settings.programs));
+
+    list.emplace_back(new SingleSwitchProgramWrapper<MultiGameFossil>(settings.programs));
+    list.emplace_back(new SingleSwitchProgramWrapper<ShinyHuntUnattendedRegi>(settings.programs));
+    list.emplace_back(new SingleSwitchProgramWrapper<ShinyHuntUnattendedSwordsOfJustice>(settings.programs));
+    list.emplace_back(new SingleSwitchProgramWrapper<ShinyHuntUnattendedStrongSpawn>(settings.programs));
+    list.emplace_back(new SingleSwitchProgramWrapper<ShinyHuntUnattendedRegigigas2>(settings.programs));
+    list.emplace_back(new SingleSwitchProgramWrapper<ShinyHuntUnattendedIoATrade>(settings.programs));
+    
+    list.emplace_back(new SingleSwitchProgramWrapper<ShinyHuntAutonomousRegi>(settings.programs));
+    list.emplace_back(new SingleSwitchProgramWrapper<ShinyHuntAutonomousSwordsOfJustice>(settings.programs));
+    list.emplace_back(new SingleSwitchProgramWrapper<ShinyHuntAutonomousStrongSpawn>(settings.programs));
+    list.emplace_back(new SingleSwitchProgramWrapper<ShinyHuntAutonomousRegigigas2>(settings.programs));
+    list.emplace_back(new SingleSwitchProgramWrapper<ShinyHuntAutonomousIoATrade>(settings.programs));
+    list.emplace_back(new SingleSwitchProgramWrapper<ShinyHuntAutonomousBerryTree>(settings.programs));
+    list.emplace_back(new SingleSwitchProgramWrapper<ShinyHuntAutonomousWhistling>(settings.programs));
+    list.emplace_back(new SingleSwitchProgramWrapper<ShinyHuntAutonomousFishing>(settings.programs));
+    if (settings.developer_mode){
+        list.emplace_back(new SingleSwitchProgramWrapper<ShinyHuntAutonomousOverworld>(settings.programs));
+    }
 
     list.emplace_back(new SingleSwitchProgramWrapper<EggFetcher2>(settings.programs));
     list.emplace_back(new SingleSwitchProgramWrapper<EggHatcher>(settings.programs));

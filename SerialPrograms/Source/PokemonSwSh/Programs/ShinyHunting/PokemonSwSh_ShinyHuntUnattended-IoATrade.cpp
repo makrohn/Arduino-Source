@@ -19,13 +19,17 @@ namespace PokemonSwSh{
 ShinyHuntUnattendedIoATrade::ShinyHuntUnattendedIoATrade()
     : SingleSwitchProgram(
         FeedbackType::NONE, PABotBaseLevel::PABOTBASE_31KB,
-        "Shiny Hunt Unattended - IoATrade",
+        "Shiny Hunt Unattended - IoA Trade",
         "NativePrograms/ShinyHuntUnattended-IoATrade.md",
         "Hunt for shiny Isle of Armor trade. Stop when a shiny is found."
     )
     , START_TO_RUN_DELAY(
         "<b>Start to Run Delay:</b><br>This needs to be carefully calibrated.",
         "1260"
+    )
+    , TOUCH_DATE_INTERVAL(
+        "<b>Rollover Prevention:</b><br>Prevent a den from rolling over by periodically touching the date. If set to zero, this feature is disabled.",
+        "4 * 3600 * TICKS_PER_SECOND"
     )
     , m_advanced_options(
         "<font size=4><b>Advanced Options:</b> You should not need to touch anything below here.</font>"
@@ -42,17 +46,13 @@ ShinyHuntUnattendedIoATrade::ShinyHuntUnattendedIoATrade()
         "<b>Mash to Trade Delay:</b><br>Time to perform the trade.",
         "29 * TICKS_PER_SECOND"
     )
-    , TOUCH_DATE_INTERVAL(
-        "<b>Rollover Prevention:</b><br>Prevent a den from rolling over by periodically touching the date. If set to zero, this feature is disabled.",
-        "4 * 3600 * TICKS_PER_SECOND"
-    )
 {
     m_options.emplace_back(&START_TO_RUN_DELAY, "START_TO_RUN_DELAY");
+    m_options.emplace_back(&TOUCH_DATE_INTERVAL, "TOUCH_DATE_INTERVAL");
     m_options.emplace_back(&m_advanced_options, "");
     m_options.emplace_back(&FLY_DURATION, "FLY_DURATION");
     m_options.emplace_back(&MOVE_DURATION, "MOVE_DURATION");
     m_options.emplace_back(&MASH_TO_TRADE_DELAY, "MASH_TO_TRADE_DELAY");
-    m_options.emplace_back(&TOUCH_DATE_INTERVAL, "TOUCH_DATE_INTERVAL");
 }
 
 void ShinyHuntUnattendedIoATrade::program(SingleSwitchProgramEnvironment& env) const{
@@ -61,10 +61,10 @@ void ShinyHuntUnattendedIoATrade::program(SingleSwitchProgramEnvironment& env) c
 
     uint32_t last_touch = system_clock() - TOUCH_DATE_INTERVAL;
     for (uint32_t c = 0; ; c++){
-        env.logger.log("Starting Trade: " + tostr_u_commas(c + 1));
+        env.log("Starting Trade: " + tostr_u_commas(c + 1));
 
         pbf_press_button(BUTTON_A, 10, 100);
-        pbf_press_button(BUTTON_A, 10, 50);
+        pbf_press_button(BUTTON_A, 10, 60);
         pbf_press_button(BUTTON_A, 10, 100);
         pbf_press_button(BUTTON_A, 10, 50);
         pbf_press_button(BUTTON_A, 10, POKEMON_TO_BOX_DELAY);

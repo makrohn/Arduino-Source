@@ -7,6 +7,7 @@
 #include <QJsonArray>
 #include <QJsonObject>
 #include <QHBoxLayout>
+#include "Common/Compiler.h"
 #include "Common/Qt/StringException.h"
 #include "Common/Qt/QtJsonTools.h"
 #include "CameraSelector.h"
@@ -33,22 +34,20 @@ CameraSelector::CameraSelector(QString label, const QJsonValue& json)
 }
 
 void CameraSelector::load_json(const QJsonValue& json){
-    try{
-        QJsonObject obj = json_cast_object(json);
-        QString name = json_get_string(obj, JSON_CAMERA);
-        for (const auto& item : QCameraInfo::availableCameras()){
-            if (name == item.deviceName()){
-                m_camera = item;
-                break;
-            }
+    QJsonObject obj = json.toObject();
+    QString name;
+    if (!json_get_string(name, obj, JSON_CAMERA)){
+        return;
+    }
+    for (const auto& item : QCameraInfo::availableCameras()){
+        if (name == item.deviceName()){
+            m_camera = item;
+            break;
         }
-        QJsonArray res = json_get_array(obj, JSON_RESOLUTION);
-        if (res.size() != 2){
-            throw StringException("Config Error - Resolution should be 2 elements: " + JSON_RESOLUTION);
-        }
-        m_resolution = QSize(json_cast_int(res[0]), json_cast_int(res[1]));
-    }catch (const StringException& str){
-        cout << str.message().toUtf8().data() << endl;
+    }
+    QJsonArray res = json_get_array_nothrow(obj, JSON_RESOLUTION);
+    if (res.size() == 2 && res[0].isDouble() && res[1].isDouble()){
+        m_resolution = QSize(res[0].toInt(), res[1].toInt());
     }
 }
 QJsonValue CameraSelector::to_json() const{
@@ -67,6 +66,9 @@ CameraSelectorUI* CameraSelector::make_ui(QWidget& parent, QWidget& holder){
 
 
 
+CameraSelectorUI::~CameraSelectorUI(){
+//    cout << "~CameraSelectorUI()" << endl;
+}
 CameraSelectorUI::CameraSelectorUI(QWidget& parent, CameraSelector& value, QWidget& holder)
     : QWidget(&parent)
     , m_value(value)
@@ -209,7 +211,7 @@ void CameraSelectorUI::reset_video(){
             m_camera = nullptr;
 
             for (auto& item : m_pending_captures){
-                item.second.done = true;
+                item.second.status = CaptureStatus::COMPLETED;
                 item.second.cv.notify_all();
             }
         }
@@ -231,12 +233,13 @@ void CameraSelectorUI::reset_video(){
             m_capture, &QCameraImageCapture::imageCaptured,
             this, [&](int id, const QImage& preview){
                 std::lock_guard<std::mutex> lg(m_camera_lock);
+//                cout << "finish = " << id << endl;
                 auto iter = m_pending_captures.find(id);
                 if (iter == m_pending_captures.end()){
                     cout << "QCameraImageCapture::imageCaptured(): Unable to find capture id: " << id << endl;
                     return;
                 }
-                iter->second.done = true;
+                iter->second.status = CaptureStatus::COMPLETED;
                 iter->second.image = preview;
                 iter->second.cv.notify_all();
             }
@@ -245,12 +248,13 @@ void CameraSelectorUI::reset_video(){
             m_capture, static_cast<void(QCameraImageCapture::*)(int, QCameraImageCapture::Error, const QString&)>(&QCameraImageCapture::error),
             this, [&](int id, QCameraImageCapture::Error error, const QString& errorString){
                 std::lock_guard<std::mutex> lg(m_camera_lock);
+//                cout << "error = " << id << endl;
                 cout << "QCameraImageCapture::error(): " << errorString.toUtf8().data() << endl;
                 auto iter = m_pending_captures.find(id);
                 if (iter == m_pending_captures.end()){
                     return;
                 }
-                iter->second.done = true;
+                iter->second.status = CaptureStatus::COMPLETED;
                 iter->second.cv.notify_all();
             }
         );
@@ -366,6 +370,8 @@ QImage CameraSelectorUI::snapshot(){
     int id = m_capture->capture();
     m_camera->unlock();
 
+//    cout << "start = " << id << endl;
+
     auto iter = m_pending_captures.emplace(
         std::piecewise_construct,
         std::forward_as_tuple(id),
@@ -376,9 +382,17 @@ QImage CameraSelectorUI::snapshot(){
     }
     PendingCapture& capture = iter.first->second;
 
-    capture.cv.wait(lg, [&]{
-        return capture.done;
-    });
+    capture.cv.wait_for(
+        lg,
+        std::chrono::milliseconds(1000),
+        [&]{
+            return capture.status != CaptureStatus::PENDING;
+        }
+    );
+
+    if (capture.status != CaptureStatus::COMPLETED){
+        cout << "Capture timed out." << endl;
+    }
 
     QImage ret = std::move(capture.image);
     m_pending_captures.erase(iter.first);

@@ -9,11 +9,12 @@
 
 #include "Common/SwitchFramework/Switch_PushButtons.h"
 #include "CommonFramework/Inference/ImageTools.h"
+#include "CommonFramework/Inference/InferenceThrottler.h"
 #include "PokemonSwSh_BeamSetter.h"
 
-//#include <iostream>
-//using std::cout;
-//using std::endl;
+#include <iostream>
+using std::cout;
+using std::endl;
 
 namespace PokemonAutomation{
 namespace NintendoSwitch{
@@ -31,7 +32,7 @@ BeamSetter::BeamSetter(VideoFeed& feed, Logger& logger)
     }
 }
 
-bool BeamSetter::run(
+BeamSetter::Detection BeamSetter::run(
     ProgramEnvironment& env, BotBase& botbase,
     double detection_threshold, uint16_t timeout_ticks
 ){
@@ -39,7 +40,7 @@ bool BeamSetter::run(
     QImage baseline_image = m_feed.snapshot();
     if (baseline_image.isNull()){
         m_logger.log("BeamSetter(): Screenshot failed.", "purple");
-        return false;
+        return Detection::NO_DETECTION;
     }
 //    baseline_image.save("f:/test0.jpg");
 //    cout << "=======================" << endl;
@@ -52,7 +53,6 @@ bool BeamSetter::run(
     //  Drop the wishing piece.
     pbf_press_button(botbase, BUTTON_A, 10, 10);
     botbase.wait_for_all_requests();
-    uint32_t start = system_clock(botbase);
 
     //  Set up detection history.
     std::map<size_t, size_t> red_detections;
@@ -61,13 +61,14 @@ bool BeamSetter::run(
     bool low_stddev_flag = false;
     std::vector<FloatPixel> current_values(m_boxes.size());
     std::vector<FloatPixel> current_ratio_diffs(m_boxes.size());
-    uint32_t now = start;
-    while (now - start < timeout_ticks){
+
+    InferenceThrottler throttler(std::chrono::milliseconds((uint64_t)timeout_ticks * 1000 / TICKS_PER_SECOND));
+    do{
         //  Take screenshot.
         QImage current = m_feed.snapshot();
         if (current.isNull()){
             m_logger.log("BeamSetter(): Screenshot failed.", "purple");
-            return false;
+            return Detection::NO_DETECTION;
         }
 //        current.save("f:/test1.jpg");
 
@@ -105,7 +106,8 @@ bool BeamSetter::run(
                 min_stddev = stddev;
                 min_stddev_index = c;
             }
-            if (stddev < 10 && current_values[c].sum() > 500){
+//            cout << c << " : stddev = " << stddev << ", sum = " << current_values[c].sum() << endl;
+            if (stddev < 50 && current_values[c].sum() > 500){
                 size_t& count = purple_detections[c];
                 count++;
             }
@@ -134,7 +136,7 @@ bool BeamSetter::run(
             m_logger.log(str, "purple");
             if (count >= 5){
                 m_logger.log("BeamReader(): 5 positive red reads. Red beam found.", "blue");
-                return false;
+                return Detection::RED_DETECTED;
             }
         }
         if (!purple_detections.empty()){
@@ -149,18 +151,17 @@ bool BeamSetter::run(
             m_logger.log(str, "purple");
             if (count >= 1){
                 m_logger.log("BeamReader(): Purple beam found!", "blue");
-                return true;
+                return Detection::PURPLE;
             }
         }
         if (low_stddev_flag && text_stddev > 100){
             m_logger.log("BeamReader(): No beam detected with text. Resetting.", "blue");
-            return false;
+            return Detection::RED_ASSUMED;
         }
 
-        env.wait(std::chrono::milliseconds(50));
-        now = system_clock(botbase);
-    }
-    return false;
+    }while (!throttler.end_iteration(env));
+
+    return Detection::NO_DETECTION;
 }
 
 

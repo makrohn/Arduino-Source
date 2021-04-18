@@ -5,11 +5,35 @@
  */
 
 #include <cmath>
+#include "Common/Clientside/PrettyPrint.h"
+#include "ClientSource/Libraries/Logging.h"
 #include "Common/SwitchFramework/FrameworkSettings.h"
 #include "Common/SwitchFramework/Switch_PushButtons.h"
 #include "Common/PokemonSwSh/PokemonSettings.h"
 #include "Common/PokemonSwSh/PokemonSwShGameEntry.h"
+#include "CommonFramework/Tools/StatsTracking.h"
+#include "CommonFramework/Tools/StatsDatabase.h"
 #include "CommonFramework/Inference/ImageTools.h"
+#include "CommonFramework/Inference/InferenceThrottler.h"
+#include "CommonFramework/Inference/FillGeometry.h"
+#include "CommonFramework/Inference/AnomalyDetector.h"
+#include "CommonFramework/Inference/ColorClustering.h"
+#include "CommonFramework/Inference/StatAccumulator.h"
+#include "CommonFramework/Inference/TimeWindowStatTracker.h"
+#include "PokemonSwSh/ShinyHuntTracker.h"
+#include "PokemonSwSh/Inference/ShinyDetection/PokemonSwSh_ShinyFilters.h"
+#include "PokemonSwSh/Inference/ShinyDetection/PokemonSwSh_SparkleTrigger.h"
+#include "PokemonSwSh/Inference/ShinyDetection/PokemonSwSh_SquareTrigger.h"
+#include "PokemonSwSh/Inference/ShinyDetection/PokemonSwSh_SquareDetector.h"
+#include "PokemonSwSh/Inference/ShinyDetection/PokemonSwSh_ShinyTrigger.h"
+#include "PokemonSwSh/Inference/ShinyDetection/PokemonSwSh_ShinyEncounterDetector.h"
+#include "PokemonSwSh/Inference/PokemonSwSh_StartBattleDetector.h"
+#include "PokemonSwSh/Inference/PokemonSwSh_SummaryShinySymbolDetector.h"
+#include "PokemonSwSh/Inference/PokemonSwSh_RaidCatchDetector.h"
+#include "PokemonSwSh/Inference/PokemonSwSh_BattleMenuDetector.h"
+#include "PokemonSwSh/Inference/PokemonSwSh_FishingDetector.h"
+#include "PokemonSwSh/Inference/PokemonSwSh_MarkFinder.h"
+#include "PokemonSwSh_StartGame.h"
 #include "TestProgram.h"
 
 #include <fstream>
@@ -37,12 +61,237 @@ TestProgram::TestProgram()
 
 
 void TestProgram::program(SingleSwitchProgramEnvironment& env) const{
-    BotBase& botbase = env.console;
+//    BotBase& botbase = env.console;
     VideoFeed& feed = env.console;
 
 #if 0
-    RaidCatchDetector detector(feed, std::chrono::seconds(60));
+    StatSet set;
+    set.open_from_file("test.txt");
 
+//    cout << set.to_str() << endl;
+
+    set.save_to_file("test2.txt");
+#endif
+
+
+#if 0
+//    start_game_from_home_with_inference(env, env.logger, env.console, true, 0, 0, true);
+
+//    std::pair<uint8_t, uint8_t> coord = get_direction(-3, -1.0);
+//    cout << "direction = " << (int)coord.first << ", " << (int)coord.second << endl;
+
+//    Trajectory trajectory = get_trajectory_float(.09, .09);
+//    cout << trajectory.distance_in_ticks << " : " << (int)trajectory.joystick_x << "," << (int)trajectory.joystick_y << endl;
+
+    ShinyHuntTracker tracker(true);
+    tracker.parse_and_append_line("Encounters: 100 - Star Shinies: 2 - Square Shinies: 1");
+//    cout << tracker.to_str() << endl;
+
+//    StatLine line(tracker);
+//    cout << line.to_str() << endl;
+
+//    StatLine line1("2021-04-08 00:25:12.131850 - Encounters: 100 - Star Shinies: 2 - Square Shinies: 1");
+//    cout << line1.to_str() << endl;
+
+    StatList list;
+    list += tracker;
+    list += "2021-04-08 00:25:12.131850 - Encounters: 200 - Star Shinies: 1 - Square Shinies: 0";
+
+    cout << list.to_str() << endl;
+
+    StatSet set;
+    StatList& program0 = set["program 0"];
+    program0 += "Timestamp - Encounters: 100 - Star Shinies: 2 - Square Shinies: 1";
+    program0 += "Timestamp - Encounters: 200 - Star Shinies: 1 - Square Shinies: 0";
+    StatList& program1 = set["program 1"];
+    program1 += "Timestamp - Encounters: 300 - Star Shinies: 3 - Square Shinies: 2";
+    program1 += "Timestamp - Encounters: 400 - Star Shinies: 4 - Square Shinies: 1";
+
+    set.save_to_file("test.txt");
+#endif
+
+
+#if 0
+    QImage image("test-screen.png");
+//    QImage image("test-1617471750423682600-O.png");
+//    QImage image = feed.snapshot();
+//    image.save("square-test0.png");
+    FillMatrix matrix(image);
+
+    BrightYellowLightFilterDebug filter;
+    matrix.apply_filter(image, filter);
+    image.save("square-test0.png");
+
+    std::vector<FillGeometry> objects;
+    objects = find_all_objects(matrix, 1, true);
+    cout << "objects = " << objects.size() << endl;
+
+    std::deque<InferenceBoxScope> boxes;
+    for (const FillGeometry& object : objects){
+        if (is_square2(image, matrix, object)){
+            InferenceBox box = translate_to_parent(image, InferenceBox(0, 0, 1, 1), object.box);
+            box.color = Qt::green;
+            boxes.emplace_back(feed, box);
+        }
+    }
+
+    env.wait(std::chrono::seconds(600));
+#endif
+
+
+#if 0
+    std::deque<InferenceBoxScope> grid;
+    for (size_t r = 0; r < 10; r++){
+        for (size_t c = 0; c < 10; c++){
+            grid.emplace_back(feed, 0.1 * c, 0.1 * r, 0.1, 0.1);
+        }
+    }
+
+    env.wait(std::chrono::seconds(5));
+
+    pbf_move_left_joystick(208, 16, 500, 0);
+
+    env.wait(std::chrono::seconds(600));
+#endif
+
+
+
+#if 1
+    QImage screen("mark-test0.png");
+
+    std::vector<PixelBox> marks;
+    find_marks(screen, nullptr, &marks);
+
+    for (const PixelBox& box : marks){
+        cout << box.width() << " x " << box.height() << endl;
+    }
+#endif
+
+
+#if 0
+    FillMatrix blue_matrix(screen);
+    BlueFilter blue_filter;
+    blue_matrix.apply_filter(blue, blue_filter);
+    blue.save("blue.png");
+#endif
+
+
+
+#if 0
+    SummaryShinySymbolDetector detector(feed, env.logger);
+
+    detector.wait_for_detection(env);
+
+    env.wait(std::chrono::seconds(600));
+#endif
+
+#if 1
+    detect_shiny_battle(
+        env, env.console,
+        SHINY_BATTLE_REGULAR,
+        std::chrono::seconds(60)
+    );
+#endif
+
+
+#if 0
+    StandardBattleMenuDetector detector(feed);
+    cout << "Battle Menu = " << detector.detect(feed.snapshot()) << endl;
+    env.wait(std::chrono::seconds(600));
+#endif
+
+#if 0
+    FishingDetector detector(feed);
+    detector.wait_for_detection(env, env.logger);
+#endif
+
+
+#if 0
+    QImage screen("FishingBig.jpg");
+
+    FillMatrix matrix(screen);
+    PinkFilter2 filter;
+    matrix.apply_filter(screen, filter);
+    screen.save("test.png");
+
+    std::vector<FillGeometry> objects = find_all_objects(matrix, false);
+    std::multimap<size_t, FillGeometry> candidate_top;
+    std::multimap<size_t, FillGeometry> candidate_bot;
+    for (const FillGeometry& object : objects){
+        ImageStats stats = object_stats(screen, matrix, object);
+
+        double aspect_ratio = (double)object.box.width() / object.box.height();
+        FloatPixel color_ratio = stats.average / stats.average.sum();
+        double stddev = stats.stddev.sum();
+
+#if 0
+        cout << object.area << " : [" << object.center_x << "," << object.center_y
+             << "][" << object.box.width() << " x " << object.box.height()
+             << "], mean = " << stats.average / stats.average.sum()
+             << ", stddev = " << stats.stddev << endl;
+#endif
+
+        if (0.4 < aspect_ratio && aspect_ratio < 0.6 &&
+            stddev < 50 &&
+            euclidean_distance(color_ratio, FloatPixel(0.56, 0.14, 0.30)) < 0.2
+        ){
+//            cout << "top" << endl;
+            candidate_top.emplace(object.area, object);
+        }
+        if (1.0 < aspect_ratio && aspect_ratio < 1.5 &&
+            stddev < 25 &&
+            euclidean_distance(color_ratio, FloatPixel(0.56, 0.21, 0.23)) < 0.2
+        ){
+//            cout << "bottom" << endl;
+            candidate_bot.emplace(object.area, object);
+        }
+    }
+
+    for (auto iter = candidate_top.rbegin(); iter != candidate_top.rend(); ++iter){
+        const FillGeometry& top = iter->second;
+        size_t top_area = top.area;
+        size_t area_low = top_area / 7.;
+        size_t area_high = top_area / 5.;
+//        cout << "area = " << top_area << ", low = " << area_low << ", high = " << area_high << endl;
+        auto iter0 = candidate_bot.lower_bound(area_low);
+        auto iter1 = candidate_bot.upper_bound(area_high);
+        for (; iter0 != iter1; ++iter0){
+            const FillGeometry& bottom = iter0->second;
+
+//            cout << "top_area = " << top_area << ", bot_area = " << bottom.area << endl;
+
+            //  Verify that top is above bottom.
+            if (top.box.max_y >= bottom.box.min_y){
+                continue;
+            }
+//            cout << "check 1" << endl;
+
+            //  Verify bottom is left of the top.
+            if (top.center_x <= bottom.center_x){
+                continue;
+            }
+
+            //  Make sure horizontal alignment is reasonable.
+            int mid = (top.box.min_x + top.box.max_x) / 2;
+            if (std::abs(bottom.box.max_x - mid) * 5 > top.box.width()){
+                continue;
+            }
+
+            //  Make sure vertical alignment is reasonable.
+            if (top.box.max_y + top.box.height() <= bottom.box.min_y){
+                continue;
+            }
+
+            cout << "match!" << endl;
+        }
+    }
+#endif
+
+
+
+
+#if 0
+    RaidCatchDetector detector(feed, std::chrono::seconds(60));
 
     size_t c = 0;
     while (true){
@@ -67,7 +316,6 @@ void TestProgram::program(SingleSwitchProgramEnvironment& env) const{
 //        break;
     }
 #endif
-
 
 
 //    QImage image = feed.snapshot();
