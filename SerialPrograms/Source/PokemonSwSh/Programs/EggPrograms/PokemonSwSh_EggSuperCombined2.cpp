@@ -14,13 +14,22 @@ namespace PokemonAutomation{
 namespace NintendoSwitch{
 namespace PokemonSwSh{
 
-EggSuperCombined2::EggSuperCombined2()
-    : SingleSwitchProgram(
-        FeedbackType::NONE, PABotBaseLevel::PABOTBASE_31KB,
+
+EggSuperCombined2_Descriptor::EggSuperCombined2_Descriptor()
+    : RunnableSwitchProgramDescriptor(
+        "PokemonSwSh:EggSuperCombined2",
         "Egg Super-Combined 2",
         "NativePrograms/EggSuperCombined2.md",
-        "Fetch and hatch eggs at the same time. (Fastest - 1700 eggs/day for 5120-step)"
+        "Fetch and hatch eggs at the same time. (Fastest - 1700 eggs/day for 5120-step)",
+        FeedbackType::NONE,
+        PABotBaseLevel::PABOTBASE_31KB
     )
+{}
+
+
+
+EggSuperCombined2::EggSuperCombined2(const EggSuperCombined2_Descriptor& descriptor)
+    : SingleSwitchProgramInstance(descriptor)
     , BOXES_TO_RELEASE(
         "<b>Boxes to Release:</b><br>Start by releasing this many boxes.",
         2, 0, 32
@@ -69,7 +78,7 @@ EggSuperCombined2::EggSuperCombined2()
     m_options.emplace_back(&HATCH_DELAY, "HATCH_DELAY");
 }
 
-void EggSuperCombined2::program(SingleSwitchProgramEnvironment& env) const{
+void EggSuperCombined2::program(SingleSwitchProgramEnvironment& env){
     EggCombinedSession session{
         .BOXES_TO_HATCH = BOXES_TO_HATCH,
         .STEPS_TO_HATCH = STEPS_TO_HATCH,
@@ -80,25 +89,25 @@ void EggSuperCombined2::program(SingleSwitchProgramEnvironment& env) const{
         .TOUCH_DATE_INTERVAL = TOUCH_DATE_INTERVAL,
     };
 
-    grip_menu_connect_go_home();
-    resume_game_back_out(TOLERATE_SYSTEM_UPDATE_MENU_FAST, 400);
+    grip_menu_connect_go_home(env.console);
+    resume_game_back_out(env.console, TOLERATE_SYSTEM_UPDATE_MENU_FAST, 400);
 
     //  Mass Release
-    ssf_press_button2(BUTTON_X, OVERWORLD_TO_MENU_DELAY, 20);
-    ssf_press_button1(BUTTON_A, 200);
-    ssf_press_button1(BUTTON_R, 250);
-    release_boxes(BOXES_TO_RELEASE, BOX_SCROLL_DELAY, BOX_CHANGE_DELAY);
+    ssf_press_button2(env.console, BUTTON_X, OVERWORLD_TO_MENU_DELAY, 20);
+    ssf_press_button1(env.console, BUTTON_A, 200);
+    ssf_press_button1(env.console, BUTTON_R, 250);
+    release_boxes(env.console, BOXES_TO_RELEASE, BOX_SCROLL_DELAY, BOX_CHANGE_DELAY);
 
     //  Skip Boxes
     for (uint8_t c = 0; c <= BOXES_TO_SKIP; c++){
-        ssf_press_button1(BUTTON_R, 60);
+        ssf_press_button1(env.console, BUTTON_R, 60);
     }
-    pbf_mash_button(BUTTON_B, 600);
+    pbf_mash_button(env.console, BUTTON_B, 600);
 
     session.eggcombined2_body(env);
 
-    end_program_callback();
-    end_program_loop();
+    end_program_callback(env.console);
+    end_program_loop(env.console);
 }
 
 

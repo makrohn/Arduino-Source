@@ -5,7 +5,9 @@
  */
 
 #include "Common/SwitchFramework/FrameworkSettings.h"
+#include "CommonFramework/PersistentSettings.h"
 #include "CommonFramework/Options/BooleanCheckBox.h"
+#include "CommonFramework/Options/String.h"
 #include "NintendoSwitch/Options/TimeExpression.h"
 #include "FrameworkSettingsPanel.h"
 
@@ -17,13 +19,20 @@ namespace PokemonAutomation{
 namespace NintendoSwitch{
 
 
-FrameworkSettings::FrameworkSettings()
-    : SettingsPanel(
+FrameworkSettings_Descriptor::FrameworkSettings_Descriptor()
+    : PanelDescriptor(
         QColor(),
+        "NintendoSwitch:GlobalSettings",
         "Framework Settings",
         "",
-        "Global Framework Settings"
+        "Switch Framework Settings"
     )
+{}
+
+
+
+FrameworkSettings::FrameworkSettings(const FrameworkSettings_Descriptor& descriptor)
+    : SettingsPanelInstance(descriptor)
 {
     m_options.emplace_back(
         "CONNECT_CONTROLLER_DELAY",
@@ -50,6 +59,14 @@ FrameworkSettings::FrameworkSettings()
         )
     );
     m_options.emplace_back(
+        "START_GAME_INTERNET_CHECK_DELAY",
+        new TimeExpression<uint16_t>(
+            START_GAME_INTERNET_CHECK_DELAY,
+            "<b>Start Game Internet Check Delay:</b><br>If starting the game requires checking the internet, wait this long for it.",
+            "3 * TICKS_PER_SECOND"
+        )
+    );
+    m_options.emplace_back(
         "TOLERATE_SYSTEM_UPDATE_MENU_FAST",
         new BooleanCheckBox(
             TOLERATE_SYSTEM_UPDATE_MENU_FAST,
@@ -66,11 +83,7 @@ FrameworkSettings::FrameworkSettings()
         )
     );
 }
-FrameworkSettings::FrameworkSettings(const QJsonValue& json)
-    : FrameworkSettings()
-{
-    from_json(json);
-}
+
 
 
 

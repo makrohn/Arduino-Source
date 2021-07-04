@@ -4,7 +4,7 @@
  *
  */
 
-#include "Common/Clientside/PrettyPrint.h"
+#include "Common/Cpp/PrettyPrint.h"
 #include "Common/SwitchFramework/Switch_PushButtons.h"
 #include "Common/PokemonSwSh/PokemonSettings.h"
 #include "Common/PokemonSwSh/PokemonSwShGameEntry.h"
@@ -16,13 +16,20 @@ namespace NintendoSwitch{
 namespace PokemonSwSh{
 
 
-ShinyHuntUnattendedSwordsOfJustice::ShinyHuntUnattendedSwordsOfJustice()
-    : SingleSwitchProgram(
-        FeedbackType::NONE, PABotBaseLevel::PABOTBASE_12KB,
+ShinyHuntUnattendedSwordsOfJustice_Descriptor::ShinyHuntUnattendedSwordsOfJustice_Descriptor()
+    : RunnableSwitchProgramDescriptor(
+        "PokemonSwSh:ShinyHuntUnattendedSwordsOfJustice",
         "Shiny Hunt Unattended - Swords Of Justice",
         "NativePrograms/ShinyHuntUnattended-SwordsOfJustice.md",
-        "Hunt for shiny SOJs. Stop when a shiny is found."
+        "Hunt for shiny SOJs. Stop when a shiny is found.",
+        FeedbackType::NONE,
+        PABotBaseLevel::PABOTBASE_12KB
     )
+{}
+
+
+ShinyHuntUnattendedSwordsOfJustice::ShinyHuntUnattendedSwordsOfJustice(const ShinyHuntUnattendedSwordsOfJustice_Descriptor& descriptor)
+    : SingleSwitchProgramInstance(descriptor)
     , EXIT_CAMP_TO_RUN_DELAY(
         "<b>Exit Camp to Run Delay:</b><br>This needs to be carefully calibrated.",
         "1890"
@@ -52,43 +59,43 @@ ShinyHuntUnattendedSwordsOfJustice::ShinyHuntUnattendedSwordsOfJustice()
 
 
 
-void ShinyHuntUnattendedSwordsOfJustice::program(SingleSwitchProgramEnvironment& env) const{
-    grip_menu_connect_go_home();
-    resume_game_no_interact(TOLERATE_SYSTEM_UPDATE_MENU_FAST);
+void ShinyHuntUnattendedSwordsOfJustice::program(SingleSwitchProgramEnvironment& env){
+    grip_menu_connect_go_home(env.console);
+    resume_game_no_interact(env.console, TOLERATE_SYSTEM_UPDATE_MENU_FAST);
 
     const uint32_t PERIOD = (uint32_t)TIME_ROLLBACK_HOURS * 3600 * TICKS_PER_SECOND;
-    uint32_t last_touch = system_clock();
+    uint32_t last_touch = system_clock(env.console);
     for (uint32_t c = 0; ; c++){
         //  Touch the date.
-        if (TIME_ROLLBACK_HOURS > 0 && system_clock() - last_touch >= PERIOD){
-            pbf_press_button(BUTTON_HOME, 10, GAME_TO_HOME_DELAY_SAFE);
-            rollback_hours_from_home(TIME_ROLLBACK_HOURS, SETTINGS_TO_HOME_DELAY);
-            resume_game_no_interact(TOLERATE_SYSTEM_UPDATE_MENU_FAST);
+        if (TIME_ROLLBACK_HOURS > 0 && system_clock(env.console) - last_touch >= PERIOD){
+            pbf_press_button(env.console, BUTTON_HOME, 10, GAME_TO_HOME_DELAY_SAFE);
+            rollback_hours_from_home(env.console, TIME_ROLLBACK_HOURS, SETTINGS_TO_HOME_DELAY);
+            resume_game_no_interact(env.console, TOLERATE_SYSTEM_UPDATE_MENU_FAST);
             last_touch += PERIOD;
         }
 
         //  Trigger encounter.
-        pbf_press_button(BUTTON_X, 10, OVERWORLD_TO_MENU_DELAY);
-        pbf_press_button(BUTTON_A, 10, ENTER_CAMP_DELAY);
+        pbf_press_button(env.console, BUTTON_X, 10, OVERWORLD_TO_MENU_DELAY);
+        pbf_press_button(env.console, BUTTON_A, 10, ENTER_CAMP_DELAY);
         if (AIRPLANE_MODE){
-            pbf_press_button(BUTTON_A, 10, 100);
-            pbf_press_button(BUTTON_A, 10, 100);
+            pbf_press_button(env.console, BUTTON_A, 10, 100);
+            pbf_press_button(env.console, BUTTON_A, 10, 100);
         }
-        pbf_press_button(BUTTON_X, 10, 50);
-        pbf_press_dpad(DPAD_LEFT, 10, 10);
+        pbf_press_button(env.console, BUTTON_X, 10, 50);
+        pbf_press_dpad(env.console, DPAD_LEFT, 10, 10);
         env.log("Starting Encounter: " + tostr_u_commas(c + 1));
-        pbf_press_button(BUTTON_A, 10, EXIT_CAMP_TO_RUN_DELAY);
+        pbf_press_button(env.console, BUTTON_A, 10, EXIT_CAMP_TO_RUN_DELAY);
 
         //  Run away if not shiny.
-        run_away_with_lights();
+        run_away_with_lights(env.console);
 
         //  Enter Pokemon menu if shiny.
-        enter_summary(false);
+        enter_summary(env.console, false);
     }
 
-    pbf_press_button(BUTTON_HOME, 10, GAME_TO_HOME_DELAY_SAFE);
-    end_program_callback();
-    end_program_loop();
+    pbf_press_button(env.console, BUTTON_HOME, 10, GAME_TO_HOME_DELAY_SAFE);
+    end_program_callback(env.console);
+    end_program_loop(env.console);
 }
 
 

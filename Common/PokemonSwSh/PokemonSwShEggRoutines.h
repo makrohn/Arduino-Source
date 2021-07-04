@@ -22,7 +22,7 @@
 //  Universal
 #define TRAVEL_TO_SPIN_SPOT_DURATION    (300)
 #define TRAVEL_BACK_TO_LADY_DURATION    (30 + 260 + (620) + 120 + 120 * 0)
-#ifdef __cplusplus
+#if 0
 void eggfetcher_loop        (void);
 void move_while_mashing_B   (uint16_t duration);
 void spin_and_mash_A        (uint16_t duration);
@@ -36,13 +36,14 @@ void travel_back_to_lady    (void);
 //  Client Side
 #ifdef __cplusplus
 namespace PokemonAutomation{
-    class BotBase;
+    class BotBaseContext;
+
+    void eggfetcher_loop        (const BotBaseContext& context);
+    void move_while_mashing_B   (const BotBaseContext& context, uint16_t duration);
+    void spin_and_mash_A        (const BotBaseContext& context, uint16_t duration);
+    void travel_to_spin_location(const BotBaseContext& context);
+    void travel_back_to_lady    (const BotBaseContext& context);
 }
-void eggfetcher_loop        (PokemonAutomation::BotBase& device);
-void move_while_mashing_B   (PokemonAutomation::BotBase& device, uint16_t duration);
-void spin_and_mash_A        (PokemonAutomation::BotBase& device, uint16_t duration);
-void travel_to_spin_location(PokemonAutomation::BotBase& device);
-void travel_back_to_lady    (PokemonAutomation::BotBase& device);
 #endif
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
@@ -57,29 +58,29 @@ void travel_back_to_lady    (PokemonAutomation::BotBase& device);
 #endif
 ////////////////////////////////////////////////////////////////////////////////
 
-#define PABB_MSG_COMMAND_EGG_FETCHER_LOOP                       0xc6
+#define PABB_MSG_COMMAND_EGG_FETCHER_LOOP                       0xc5
 typedef struct{
     seqnum_t seqnum;
 } PABB_PACK pabb_eggfetcher_loop;
 
-#define PABB_MSG_COMMAND_MOVE_WHILE_MASHING_B                   0xc7
+#define PABB_MSG_COMMAND_MOVE_WHILE_MASHING_B                   0xc6
 typedef struct{
     seqnum_t seqnum;
     uint16_t duration;
 } PABB_PACK pabb_move_while_mashing_B;
 
-#define PABB_MSG_COMMAND_SPIN_AND_MASH_A                        0xc8
+#define PABB_MSG_COMMAND_SPIN_AND_MASH_A                        0xc7
 typedef struct{
     seqnum_t seqnum;
     uint16_t duration;
 } PABB_PACK pabb_spin_and_mash_A;
 
-#define PABB_MSG_COMMAND_TRAVEL_TO_SPIN_LOCATION                0xc9
+#define PABB_MSG_COMMAND_TRAVEL_TO_SPIN_LOCATION                0xc8
 typedef struct{
     seqnum_t seqnum;
 } PABB_PACK pabb_travel_to_spin_location;
 
-#define PABB_MSG_COMMAND_TRAVEL_BACK_TO_LADY                    0xca
+#define PABB_MSG_COMMAND_TRAVEL_BACK_TO_LADY                    0xc9
 typedef struct{
     seqnum_t seqnum;
 } PABB_PACK pabb_travel_back_to_lady;

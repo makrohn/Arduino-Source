@@ -12,6 +12,7 @@
 #include <mutex>
 #include <condition_variable>
 #include <QObject>
+#include "Common/Cpp/AsyncDispatcher.h"
 #include "ClientSource/Connection/BotBase.h"
 #include "Logger.h"
 #include "StatsTracking.h"
@@ -37,7 +38,9 @@ public:
     void log(Args&&... args);
     Logger& logger(){ return m_logger; }
 
-    void update_stats();
+    AsyncDispatcher& dispatcher(){ return m_dispatcher; }
+
+    void update_stats(const std::string& override_current = "");
 
     template <typename StatsType>
     StatsType& stats();
@@ -62,6 +65,7 @@ private:
     std::condition_variable m_cv;
 
     Logger& m_logger;
+    AsyncDispatcher m_dispatcher;
     StatsTracker* m_current_stats;
     const StatsTracker* m_historical_stats;
 };

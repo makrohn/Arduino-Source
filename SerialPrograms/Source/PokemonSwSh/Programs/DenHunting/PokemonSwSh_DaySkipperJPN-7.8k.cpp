@@ -4,23 +4,33 @@
  *
  */
 
-#include "Common/Clientside/PrettyPrint.h"
+#include "Common/Cpp/PrettyPrint.h"
 #include "Common/PokemonSwSh/PokemonSwShGameEntry.h"
 #include "Common/PokemonSwSh/PokemonSwShDaySkippers.h"
 #include "NintendoSwitch/FixedInterval.h"
+#include "PokemonSwSh_DaySkipperStats.h"
 #include "PokemonSwSh_DaySkipperJPN-7.8k.h"
 
 namespace PokemonAutomation{
 namespace NintendoSwitch{
 namespace PokemonSwSh{
 
-DaySkipperJPN7p8k::DaySkipperJPN7p8k()
-    : SingleSwitchProgram(
-        FeedbackType::NONE, PABotBaseLevel::PABOTBASE_31KB,
+
+DaySkipperJPN7p8k_Descriptor::DaySkipperJPN7p8k_Descriptor()
+    : RunnableSwitchProgramDescriptor(
+        "PokemonSwSh:DaySkipperJPN7p8k",
         "Day Skipper (JPN) - 7.8k",
         "NativePrograms/DaySkipperJPN-7.8k.md",
-        "A faster, but less reliable Japanese date skipper. (7800 skips/hour)"
+        "A faster, but less reliable Japanese date skipper. (7800 skips/hour)",
+        FeedbackType::NONE,
+        PABotBaseLevel::PABOTBASE_31KB
     )
+{}
+
+
+
+DaySkipperJPN7p8k::DaySkipperJPN7p8k(const DaySkipperJPN7p8k_Descriptor& descriptor)
+    : SingleSwitchProgramInstance(descriptor)
     , SKIPS(
         "<b>Number of Frame Skips:</b>",
         10
@@ -41,6 +51,10 @@ DaySkipperJPN7p8k::DaySkipperJPN7p8k()
     m_options.emplace_back(&START_DATE, "START_DATE");
     m_options.emplace_back(&m_advanced_options, "");
     m_options.emplace_back(&CORRECTION_SKIPS, "CORRECTION_SKIPS");
+}
+
+std::unique_ptr<StatsTracker> DaySkipperJPN7p8k::make_stats() const{
+    return std::unique_ptr<StatsTracker>(new SkipperStats());
 }
 
 const uint8_t DAYS_PER_MONTH[] = {
@@ -71,11 +85,11 @@ typedef struct{
 bool is_start(const DateSmall* date){
     return date->year != 0 || date->month != 1 || date->day != 1;
 }
-bool date_increment_day(DateSmall* date, bool press){
+bool date_increment_day(const BotBaseContext& context, DateSmall* date, bool press){
     uint8_t days = days_in_month(date->year, date->month);
     if (date->day != days){
         if (press){
-            skipper_increment_day(false);
+            skipper_increment_day(context, false);
         }
         date->day++;
         return true;
@@ -96,25 +110,28 @@ bool date_increment_day(DateSmall* date, bool press){
     }
 
     if (date->month != 1){
-        skipper_increment_month(DAYS_PER_MONTH[date->month - 1]);
+        skipper_increment_month(context, DAYS_PER_MONTH[date->month - 1]);
         return true;
     }
 
     if (date->year != 0){
-        skipper_increment_all();
+        skipper_increment_all(context);
         return true;
     }
 
-    skipper_increment_all_rollback();
+    skipper_increment_all_rollback(context);
     return false;
 }
 
-void DaySkipperJPN7p8k::program(SingleSwitchProgramEnvironment& env) const{
+void DaySkipperJPN7p8k::program(SingleSwitchProgramEnvironment& env){
+    SkipperStats& stats = env.stats<SkipperStats>();
+    stats.runs++;
+
     //  Setup globals.
     uint32_t remaining_skips = SKIPS;
 
     //  Connect
-    pbf_press_button(BUTTON_ZL, 5, 5);
+    pbf_press_button(env.console, BUTTON_ZL, 5, 5);
 
     //  Sanitize starting date.
     uint16_t year = (uint16_t)((QDate)START_DATE).year();
@@ -134,27 +151,30 @@ void DaySkipperJPN7p8k::program(SingleSwitchProgramEnvironment& env) const{
     }
 
     //  Setup starting state.
-    skipper_init_view();
+    skipper_init_view(env.console);
 
     uint16_t correct_count = 0;
     while (remaining_skips > 0){
-        if (date_increment_day(&date, true)){
-            remaining_skips--;
+        if (date_increment_day(env.console, &date, true)){
             correct_count++;
+            remaining_skips--;
+            stats.issued++;
             env.log("Expected Date: " + QDate(date.year + 2000, date.month, date.day).toString("yyyy/MM/dd"));
-            env.log("Skips Remaining: " + tostr_u_commas(remaining_skips));
+//            env.log("Skips Remaining: " + tostr_u_commas(remaining_skips));
+            env.update_stats(stats.to_str_current(remaining_skips));
         }
         if (CORRECTION_SKIPS != 0 && correct_count == CORRECTION_SKIPS){
             correct_count = 0;
-            skipper_auto_recovery();
+            skipper_auto_recovery(env.console);
         }
+
     }
 
     //  Prevent the Switch from sleeping and the time from advancing.
-    end_program_callback();
-    pbf_wait(15 * TICKS_PER_SECOND);
+    end_program_callback(env.console);
+    pbf_wait(env.console, 15 * TICKS_PER_SECOND);
     while (true){
-        ssf_press_button1(BUTTON_A, 15 * TICKS_PER_SECOND);
+        ssf_press_button1(env.console, BUTTON_A, 15 * TICKS_PER_SECOND);
     }
 }
 

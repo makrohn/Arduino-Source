@@ -4,7 +4,7 @@
  *
  */
 
-#include "Common/Clientside/PrettyPrint.h"
+#include "Common/Cpp/PrettyPrint.h"
 #include "Common/SwitchFramework/FrameworkSettings.h"
 #include "Common/SwitchFramework/Switch_PushButtons.h"
 #include "Common/PokemonSwSh/PokemonSettings.h"
@@ -20,13 +20,22 @@ namespace PokemonAutomation{
 namespace NintendoSwitch{
 namespace PokemonSwSh{
 
-ShinyHuntAutonomousRegi::ShinyHuntAutonomousRegi()
-    : SingleSwitchProgram(
-        FeedbackType::REQUIRED, PABotBaseLevel::PABOTBASE_12KB,
+
+ShinyHuntAutonomousRegi_Descriptor::ShinyHuntAutonomousRegi_Descriptor()
+    : RunnableSwitchProgramDescriptor(
+        "PokemonSwSh:ShinyHuntAutonomousRegi",
         "Shiny Hunt Autonomous - Regi",
         "SerialPrograms/ShinyHuntAutonomous-Regi.md",
-        "Automatically hunt for shiny Regi using video feedback."
+        "Automatically hunt for shiny Regi using video feedback.",
+        FeedbackType::REQUIRED,
+        PABotBaseLevel::PABOTBASE_12KB
     )
+{}
+
+
+
+ShinyHuntAutonomousRegi::ShinyHuntAutonomousRegi(const ShinyHuntAutonomousRegi_Descriptor& descriptor)
+    : SingleSwitchProgramInstance(descriptor)
     , GO_HOME_WHEN_DONE(
         "<b>Go Home when Done:</b><br>After finding a shiny, go to the Switch Home menu to idle. (turn this off for unattended streaming)",
         false
@@ -42,9 +51,13 @@ ShinyHuntAutonomousRegi::ShinyHuntAutonomousRegi()
     , m_advanced_options(
         "<font size=4><b>Advanced Options:</b> You should not need to touch anything below here.</font>"
     )
-    , EXIT_BATTLE_MASH_TIME(
-        "<b>Exit Battle Time:</b><br>After running, wait this long to return to overworld.",
-        "6 * TICKS_PER_SECOND"
+    , EXIT_BATTLE_TIMEOUT(
+        "<b>Exit Battle Timeout:</b><br>After running, wait this long to return to overworld.",
+        "10 * TICKS_PER_SECOND"
+    )
+    , POST_BATTLE_MASH_TIME(
+        "<b>Post-Battle Mash:</b><br>After each battle, mash B for this long to clear the dialogs.",
+        "1 * TICKS_PER_SECOND"
     )
     , TRANSITION_DELAY(
         "<b>Transition Delay:</b><br>Time to enter/exit the building.",
@@ -64,9 +77,10 @@ ShinyHuntAutonomousRegi::ShinyHuntAutonomousRegi()
     m_options.emplace_back(&REGI_NAME, "REGI_NAME");
     m_options.emplace_back(&TOUCH_DATE_INTERVAL, "TOUCH_DATE_INTERVAL");
     m_options.emplace_back(&m_advanced_options, "");
-    m_options.emplace_back(&EXIT_BATTLE_MASH_TIME, "EXIT_BATTLE_MASH_TIME");
+    m_options.emplace_back(&EXIT_BATTLE_TIMEOUT, "EXIT_BATTLE_TIMEOUT");
+    m_options.emplace_back(&POST_BATTLE_MASH_TIME, "POST_BATTLE_MASH_TIME");
     m_options.emplace_back(&TRANSITION_DELAY, "TRANSITION_DELAY");
-    if (settings.developer_mode){
+    if (PERSISTENT_SETTINGS().developer_mode){
         m_options.emplace_back(&VIDEO_ON_SHINY, "VIDEO_ON_SHINY");
         m_options.emplace_back(&RUN_FROM_EVERYTHING, "RUN_FROM_EVERYTHING");
     }
@@ -91,24 +105,26 @@ std::unique_ptr<StatsTracker> ShinyHuntAutonomousRegi::make_stats() const{
 
 
 
-void ShinyHuntAutonomousRegi::program(SingleSwitchProgramEnvironment& env) const{
-    grip_menu_connect_go_home();
-    resume_game_back_out(TOLERATE_SYSTEM_UPDATE_MENU_FAST, 200);
+void ShinyHuntAutonomousRegi::program(SingleSwitchProgramEnvironment& env){
+    grip_menu_connect_go_home(env.console);
+    resume_game_back_out(env.console, TOLERATE_SYSTEM_UPDATE_MENU_FAST, 200);
 
     Stats& stats = env.stats<Stats>();
     StandardEncounterTracker tracker(
-        stats, env.console,
+        stats, env, env.console,
+        nullptr, Language::None,
         REQUIRE_SQUARE,
-        EXIT_BATTLE_MASH_TIME,
+        EXIT_BATTLE_TIMEOUT,
         VIDEO_ON_SHINY,
         RUN_FROM_EVERYTHING
     );
 
-    uint32_t last_touch = system_clock() - TOUCH_DATE_INTERVAL;
+    uint32_t last_touch = system_clock(env.console) - TOUCH_DATE_INTERVAL;
     bool error = false;
     while (true){
         env.update_stats();
 
+        pbf_mash_button(env.console, BUTTON_B, POST_BATTLE_MASH_TIME);
         move_to_corner(env, error, TRANSITION_DELAY);
         if (error){
             stats.m_light_resets++;
@@ -117,11 +133,11 @@ void ShinyHuntAutonomousRegi::program(SingleSwitchProgramEnvironment& env) const
         }
 
         //  Touch the date.
-        if (TOUCH_DATE_INTERVAL > 0 && system_clock() - last_touch >= TOUCH_DATE_INTERVAL){
+        if (TOUCH_DATE_INTERVAL > 0 && system_clock(env.console) - last_touch >= TOUCH_DATE_INTERVAL){
             env.log("Touching date to prevent rollover.");
-            pbf_press_button(BUTTON_HOME, 10, GAME_TO_HOME_DELAY_SAFE);
-            touch_date_from_home(SETTINGS_TO_HOME_DELAY);
-            resume_game_no_interact(TOLERATE_SYSTEM_UPDATE_MENU_FAST);
+            pbf_press_button(env.console, BUTTON_HOME, 10, GAME_TO_HOME_DELAY_SAFE);
+            touch_date_from_home(env.console, SETTINGS_TO_HOME_DELAY);
+            resume_game_no_interact(env.console, TOLERATE_SYSTEM_UPDATE_MENU_FAST);
             last_touch += TOUCH_DATE_INTERVAL;
         }
 
@@ -129,7 +145,7 @@ void ShinyHuntAutonomousRegi::program(SingleSwitchProgramEnvironment& env) const
         run_regi_light_puzzle(env, REGI_NAME, stats.encounters());
 
         //  Start the encounter.
-        pbf_mash_button(BUTTON_A, 5 * TICKS_PER_SECOND);
+        pbf_mash_button(env.console, BUTTON_A, 5 * TICKS_PER_SECOND);
         env.console.botbase().wait_for_all_requests();
 
         //  Detect shiny.
@@ -143,8 +159,8 @@ void ShinyHuntAutonomousRegi::program(SingleSwitchProgramEnvironment& env) const
             break;
         }
         if (detection == ShinyDetection::NO_BATTLE_MENU){
-            pbf_mash_button(BUTTON_B, TICKS_PER_SECOND);
-            tracker.run_away();
+            pbf_mash_button(env.console, BUTTON_B, TICKS_PER_SECOND);
+            tracker.run_away(false);
             error = true;
         }
     }
@@ -152,11 +168,11 @@ void ShinyHuntAutonomousRegi::program(SingleSwitchProgramEnvironment& env) const
     env.update_stats();
 
     if (GO_HOME_WHEN_DONE){
-        pbf_press_button(BUTTON_HOME, 10, GAME_TO_HOME_DELAY_SAFE);
+        pbf_press_button(env.console, BUTTON_HOME, 10, GAME_TO_HOME_DELAY_SAFE);
     }
 
-    end_program_callback();
-    end_program_loop();
+    end_program_callback(env.console);
+    end_program_loop(env.console);
 }
 
 

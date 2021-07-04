@@ -8,7 +8,6 @@
 #include <QJsonObject>
 #include <QHBoxLayout>
 #include "Common/Compiler.h"
-#include "Common/Qt/StringException.h"
 #include "Common/Qt/QtJsonTools.h"
 #include "CameraSelector.h"
 
@@ -274,7 +273,7 @@ void CameraSelectorUI::reset_video(){
     }
 
     m_resolution_box->clear();
-    int index = 0;
+    int index = -1;
     bool resolution_match = false;
     for (int c = 0; c < m_resolutions.size(); c++){
         const QSize& size = m_resolutions[c];
@@ -290,9 +289,13 @@ void CameraSelectorUI::reset_video(){
             index = c;
         }
     }
-    m_value.m_resolution = m_resolutions[index];
-    m_resolution_box->setCurrentIndex(index);
-    m_resolution_box->activated(index);
+    if (index >= 0){
+        m_value.m_resolution = m_resolutions[index];
+        m_resolution_box->setCurrentIndex(index);
+        m_resolution_box->activated(index);
+    }else{
+        m_value.m_resolution = QSize();
+    }
 
     m_overlay->raise();
 //    update_size();

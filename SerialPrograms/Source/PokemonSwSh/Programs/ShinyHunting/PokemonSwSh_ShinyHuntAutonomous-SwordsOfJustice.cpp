@@ -4,13 +4,16 @@
  *
  */
 
-#include "Common/Clientside/PrettyPrint.h"
+#include "Common/Cpp/PrettyPrint.h"
 #include "Common/SwitchFramework/FrameworkSettings.h"
 #include "Common/SwitchFramework/Switch_PushButtons.h"
 #include "Common/PokemonSwSh/PokemonSettings.h"
 #include "Common/PokemonSwSh/PokemonSwShGameEntry.h"
 #include "Common/PokemonSwSh/PokemonSwShDateSpam.h"
 #include "CommonFramework/PersistentSettings.h"
+#include "CommonFramework/Inference/VisualInferenceWait.h"
+#include "PokemonSwSh/Inference/PokemonSwSh_StartBattleDetector.h"
+#include "PokemonSwSh/Inference/PokemonSwSh_BattleMenuDetector.h"
 #include "PokemonSwSh/Inference/ShinyDetection/PokemonSwSh_ShinyEncounterDetector.h"
 #include "PokemonSwSh_EncounterTracker.h"
 #include "PokemonSwSh_ShinyHuntAutonomous-SwordsOfJustice.h"
@@ -20,13 +23,21 @@ namespace NintendoSwitch{
 namespace PokemonSwSh{
 
 
-ShinyHuntAutonomousSwordsOfJustice::ShinyHuntAutonomousSwordsOfJustice()
-    : SingleSwitchProgram(
-        FeedbackType::REQUIRED, PABotBaseLevel::PABOTBASE_12KB,
+ShinyHuntAutonomousSwordsOfJustice_Descriptor::ShinyHuntAutonomousSwordsOfJustice_Descriptor()
+    : RunnableSwitchProgramDescriptor(
+        "PokemonSwSh:ShinyHuntAutonomousSwordsOfJustice",
         "Shiny Hunt Autonomous - Swords Of Justice",
         "SerialPrograms/ShinyHuntAutonomous-SwordsOfJustice.md",
-        "Automatically hunt for shiny Sword of Justice using video feedback."
+        "Automatically hunt for shiny Sword of Justice using video feedback.",
+        FeedbackType::REQUIRED,
+        PABotBaseLevel::PABOTBASE_12KB
     )
+{}
+
+
+
+ShinyHuntAutonomousSwordsOfJustice::ShinyHuntAutonomousSwordsOfJustice(const ShinyHuntAutonomousSwordsOfJustice_Descriptor& descriptor)
+    : SingleSwitchProgramInstance(descriptor)
     , GO_HOME_WHEN_DONE(
         "<b>Go Home when Done:</b><br>After finding a shiny, go to the Switch Home menu to idle. (turn this off for unattended streaming)",
         false
@@ -42,9 +53,13 @@ ShinyHuntAutonomousSwordsOfJustice::ShinyHuntAutonomousSwordsOfJustice()
     , m_advanced_options(
         "<font size=4><b>Advanced Options:</b> You should not need to touch anything below here.</font>"
     )
-    , EXIT_BATTLE_MASH_TIME(
-        "<b>Exit Battle Time:</b><br>After running, wait this long to return to overworld.",
-        "6 * TICKS_PER_SECOND"
+    , EXIT_BATTLE_TIMEOUT(
+        "<b>Exit Battle Timeout:</b><br>After running, wait this long to return to overworld.",
+        "10 * TICKS_PER_SECOND"
+    )
+    , POST_BATTLE_MASH_TIME(
+        "<b>Post-Battle Mash:</b><br>After each battle, mash B for this long before entering the camp.",
+        "1 * TICKS_PER_SECOND"
     )
     , ENTER_CAMP_DELAY(
         "<b>Enter Camp Delay:</b>",
@@ -63,9 +78,10 @@ ShinyHuntAutonomousSwordsOfJustice::ShinyHuntAutonomousSwordsOfJustice()
     m_options.emplace_back(&AIRPLANE_MODE, "AIRPLANE_MODE");
     m_options.emplace_back(&TIME_ROLLBACK_HOURS, "TIME_ROLLBACK_HOURS");
     m_options.emplace_back(&m_advanced_options, "");
-    m_options.emplace_back(&EXIT_BATTLE_MASH_TIME, "EXIT_BATTLE_MASH_TIME");
+    m_options.emplace_back(&EXIT_BATTLE_TIMEOUT, "EXIT_BATTLE_TIMEOUT");
+    m_options.emplace_back(&POST_BATTLE_MASH_TIME, "POST_BATTLE_MASH_TIME");
     m_options.emplace_back(&ENTER_CAMP_DELAY, "ENTER_CAMP_DELAY");
-    if (settings.developer_mode){
+    if (PERSISTENT_SETTINGS().developer_mode){
         m_options.emplace_back(&VIDEO_ON_SHINY, "VIDEO_ON_SHINY");
         m_options.emplace_back(&RUN_FROM_EVERYTHING, "RUN_FROM_EVERYTHING");
     }
@@ -89,18 +105,19 @@ std::unique_ptr<StatsTracker> ShinyHuntAutonomousSwordsOfJustice::make_stats() c
 
 
 
-void ShinyHuntAutonomousSwordsOfJustice::program(SingleSwitchProgramEnvironment& env) const{
-    grip_menu_connect_go_home();
-    resume_game_no_interact(TOLERATE_SYSTEM_UPDATE_MENU_FAST);
+void ShinyHuntAutonomousSwordsOfJustice::program(SingleSwitchProgramEnvironment& env){
+    grip_menu_connect_go_home(env.console);
+    resume_game_no_interact(env.console, TOLERATE_SYSTEM_UPDATE_MENU_FAST);
 
     const uint32_t PERIOD = (uint32_t)TIME_ROLLBACK_HOURS * 3600 * TICKS_PER_SECOND;
-    uint32_t last_touch = system_clock();
+    uint32_t last_touch = system_clock(env.console);
 
     Stats& stats = env.stats<Stats>();
     StandardEncounterTracker tracker(
-        stats, env.console,
+        stats, env, env.console,
+        nullptr, Language::None,
         false,
-        EXIT_BATTLE_MASH_TIME,
+        EXIT_BATTLE_TIMEOUT,
         VIDEO_ON_SHINY,
         RUN_FROM_EVERYTHING
     );
@@ -109,25 +126,36 @@ void ShinyHuntAutonomousSwordsOfJustice::program(SingleSwitchProgramEnvironment&
         env.update_stats();
 
         //  Touch the date.
-        if (TIME_ROLLBACK_HOURS > 0 && system_clock() - last_touch >= PERIOD){
-            pbf_press_button(BUTTON_HOME, 10, GAME_TO_HOME_DELAY_SAFE);
-            rollback_hours_from_home(TIME_ROLLBACK_HOURS, SETTINGS_TO_HOME_DELAY);
-            resume_game_no_interact(TOLERATE_SYSTEM_UPDATE_MENU_FAST);
+        if (TIME_ROLLBACK_HOURS > 0 && system_clock(env.console) - last_touch >= PERIOD){
+            pbf_press_button(env.console, BUTTON_HOME, 10, GAME_TO_HOME_DELAY_SAFE);
+            rollback_hours_from_home(env.console, TIME_ROLLBACK_HOURS, SETTINGS_TO_HOME_DELAY);
+            resume_game_no_interact(env.console, TOLERATE_SYSTEM_UPDATE_MENU_FAST);
             last_touch += PERIOD;
         }
 
         //  Trigger encounter.
-        pbf_press_button(BUTTON_X, 10, OVERWORLD_TO_MENU_DELAY);
-        pbf_press_button(BUTTON_A, 10, ENTER_CAMP_DELAY);
+        pbf_mash_button(env.console, BUTTON_B, POST_BATTLE_MASH_TIME);
+        pbf_press_button(env.console, BUTTON_X, 10, OVERWORLD_TO_MENU_DELAY);
+        pbf_press_button(env.console, BUTTON_A, 10, ENTER_CAMP_DELAY);
         if (AIRPLANE_MODE){
-            pbf_press_button(BUTTON_A, 10, 100);
-            pbf_press_button(BUTTON_A, 10, 100);
+            pbf_press_button(env.console, BUTTON_A, 10, 100);
+            pbf_press_button(env.console, BUTTON_A, 10, 100);
         }
-        pbf_press_button(BUTTON_X, 10, 50);
-        pbf_press_dpad(DPAD_LEFT, 10, 10);
+        pbf_press_button(env.console, BUTTON_X, 10, 50);
+        pbf_press_dpad(env.console, DPAD_LEFT, 10, 10);
         env.log("Starting Encounter: " + tostr_u_commas(stats.encounters() + 1));
-        pbf_press_button(BUTTON_A, 10, 0);
+        pbf_press_button(env.console, BUTTON_A, 10, 0);
         env.console.botbase().wait_for_all_requests();
+
+        {
+            //  Wait for start of battle.
+            StandardBattleMenuDetector battle_menu_detector(env.console);
+            StartBattleDetector start_back_detector(env.console);
+            VisualInferenceWait inference(env, env.console, std::chrono::seconds(30));
+            inference += battle_menu_detector;
+            inference += start_back_detector;
+            inference.run();
+        }
 
         //  Detect shiny.
         ShinyDetection detection = detect_shiny_battle(
@@ -141,19 +169,19 @@ void ShinyHuntAutonomousSwordsOfJustice::program(SingleSwitchProgramEnvironment&
         }
         if (detection == ShinyDetection::NO_BATTLE_MENU){
             stats.m_timeouts++;
-            pbf_mash_button(BUTTON_B, TICKS_PER_SECOND);
-            tracker.run_away();
+            pbf_mash_button(env.console, BUTTON_B, TICKS_PER_SECOND);
+            tracker.run_away(false);
         }
     }
 
     env.update_stats();
 
     if (GO_HOME_WHEN_DONE){
-        pbf_press_button(BUTTON_HOME, 10, GAME_TO_HOME_DELAY_SAFE);
+        pbf_press_button(env.console, BUTTON_HOME, 10, GAME_TO_HOME_DELAY_SAFE);
     }
 
-    end_program_callback();
-    end_program_loop();
+    end_program_callback(env.console);
+    end_program_loop(env.console);
 }
 
 

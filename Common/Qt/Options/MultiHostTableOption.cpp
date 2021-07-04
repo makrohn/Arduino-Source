@@ -11,7 +11,7 @@
 #include <QHeaderView>
 #include <QCheckBox>
 #include <QScrollBar>
-#include "Common/Qt/StringException.h"
+#include "Common/Cpp/Exception.h"
 #include "Common/Qt/QtJsonTools.h"
 #include "Common/Qt/ExpressionEvaluator.h"
 #include "MultiHostTableOption.h"
@@ -37,7 +37,7 @@ std::vector<MultiHostTableOption::GameSlot> parse_game_slot(const QJsonValue& js
 
         json_get_int(slot.game_slot, line, MultiHostTableOption::JSON_GAME_SLOT, 1, 2);
         json_get_int(slot.user_slot, line, MultiHostTableOption::JSON_USER_SLOT, 1, 8);
-        json_get_int(slot.skips, line, MultiHostTableOption::JSON_SKIPS, 1, 7);
+        json_get_int(slot.skips, line, MultiHostTableOption::JSON_SKIPS, 0, 7);
 
         json_get_bool(slot.backup_save, line, MultiHostTableOption::JSON_BACKUP_SAVE);
         json_get_bool(slot.always_catchable, line, MultiHostTableOption::JSON_ALWAYS_CATCHABLE);
@@ -128,7 +128,7 @@ bool MultiHostTableOption::is_valid() const{
         int ticks;
         try{
             ticks = parse_ticks_i32(item.post_raid_delay);
-        }catch (...){
+        }catch (const ParseException&){
             return false;
         }
         if (ticks < 0 || ticks > 65535){

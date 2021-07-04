@@ -14,13 +14,22 @@ namespace PokemonAutomation{
 namespace NintendoSwitch{
 namespace PokemonSwSh{
 
-BeamReset::BeamReset()
-    : SingleSwitchProgram(
-        FeedbackType::NONE, PABotBaseLevel::PABOTBASE_12KB,
+
+BeamReset_Descriptor::BeamReset_Descriptor()
+    : RunnableSwitchProgramDescriptor(
+        "PokemonSwSh:BeamReset",
         "Beam Reset",
         "NativePrograms/BeamReset.md",
-        "Reset a beam until you see a purple beam."
+        "Reset a beam until you see a purple beam.",
+        FeedbackType::NONE,
+        PABotBaseLevel::PABOTBASE_12KB
     )
+{}
+
+
+
+BeamReset::BeamReset(const BeamReset_Descriptor& descriptor)
+    : SingleSwitchProgramInstance(descriptor)
     , DELAY_BEFORE_RESET(
         "<b>Delay before Reset:</b>",
         "5 * TICKS_PER_SECOND"
@@ -34,31 +43,31 @@ BeamReset::BeamReset()
     m_options.emplace_back(&EXTRA_LINE, "EXTRA_LINE");
 }
 
-void BeamReset::program(SingleSwitchProgramEnvironment& env) const{
-    grip_menu_connect_go_home();
+void BeamReset::program(SingleSwitchProgramEnvironment& env){
+    grip_menu_connect_go_home(env.console);
 
-    resume_game_front_of_den_nowatts(TOLERATE_SYSTEM_UPDATE_MENU_SLOW);
-    pbf_mash_button(BUTTON_B, 100);
+    resume_game_front_of_den_nowatts(env.console, TOLERATE_SYSTEM_UPDATE_MENU_SLOW);
+    pbf_mash_button(env.console, BUTTON_B, 100);
 
     while (true){
         //  Talk to den.
-        pbf_press_button(BUTTON_A, 10, 450);
+        pbf_press_button(env.console, BUTTON_A, 10, 450);
         if (EXTRA_LINE){
-            pbf_press_button(BUTTON_A, 10, 300);
+            pbf_press_button(env.console, BUTTON_A, 10, 300);
         }
-        pbf_press_button(BUTTON_A, 10, 300);
+        pbf_press_button(env.console, BUTTON_A, 10, 300);
 
         //  Drop wishing piece.
-        pbf_press_button(BUTTON_A, 10, 70);
-        pbf_press_button(BUTTON_HOME, 10, GAME_TO_HOME_DELAY_FAST);
+        pbf_press_button(env.console, BUTTON_A, 10, 70);
+        pbf_press_button(env.console, BUTTON_HOME, 10, GAME_TO_HOME_DELAY_FAST);
 
         for (uint16_t c = 0; c < 4; c++){
-            pbf_press_button(BUTTON_HOME, 10, 10);
-            pbf_press_button(BUTTON_HOME, 10, 220);
+            pbf_press_button(env.console, BUTTON_HOME, 10, 10);
+            pbf_press_button(env.console, BUTTON_HOME, 10, 220);
         }
-        pbf_wait(DELAY_BEFORE_RESET);
+        pbf_wait(env.console, DELAY_BEFORE_RESET);
 
-        reset_game_from_home(TOLERATE_SYSTEM_UPDATE_MENU_SLOW);
+        reset_game_from_home(env.console, TOLERATE_SYSTEM_UPDATE_MENU_SLOW);
     }
 }
 

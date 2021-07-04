@@ -21,8 +21,9 @@ win32-msvc{
 }
 
 SOURCES += \
-    ../Common/Clientside/PrettyPrint.cpp \
-    ../Common/Clientside/Unicode.cpp \
+    ../Common/Cpp/Exception.cpp \
+    ../Common/Cpp/PrettyPrint.cpp \
+    ../Common/Cpp/Unicode.cpp \
     ../Common/Qt/CodeValidator.cpp \
     ../Common/Qt/ExpressionEvaluator.cpp \
     ../Common/Qt/Options/BooleanCheckBoxOption.cpp \
@@ -30,6 +31,7 @@ SOURCES += \
     ../Common/Qt/Options/FossilTableOption.cpp \
     ../Common/Qt/Options/MultiHostTableOption.cpp \
     ../Common/Qt/Options/SimpleIntegerOption.cpp \
+	../Common/Qt/Options/StringOption.cpp \
     ../Common/Qt/Options/SwitchDateOption.cpp \
     ../Common/Qt/Options/TimeExpressionOption.cpp \
     ../Common/Qt/QtJsonTools.cpp \
@@ -50,19 +52,19 @@ SOURCES += \
     Source/Panels/ConfigSet.cpp \
     Source/Panels/JsonProgram.cpp \
     Source/Panels/JsonSettings.cpp \
-    Source/Panels/PanelList.cpp \
     Source/Panels/Program.cpp \
+    Source/Panels/ProgramTab.cpp \
+    Source/Panels/ProgramTabs.cpp \
     Source/Tools/CommandRunner.cpp \
     Source/Tools/MiscTools.cpp \
     Source/Tools/PersistentSettings.cpp \
     Source/UI/BoardList.cpp \
-    Source/UI/MainWindow.cpp \
-    Source/UI/ProgramListUI.cpp \
-    Source/UI/SettingListUI.cpp
+    Source/UI/MainWindow.cpp
 
 HEADERS += \
-    ../Common/Clientside/PrettyPrint.h \
-    ../Common/Clientside/Unicode.h \
+    ../Common/Cpp/Exception.h \
+    ../Common/Cpp/PrettyPrint.h \
+    ../Common/Cpp/Unicode.h \
     ../Common/Qt/CodeValidator.h \
     ../Common/Qt/ExpressionEvaluator.h \
     ../Common/Qt/Options/BooleanCheckBoxOption.h \
@@ -70,10 +72,10 @@ HEADERS += \
     ../Common/Qt/Options/FossilTableOption.h \
     ../Common/Qt/Options/MultiHostTableOption.h \
     ../Common/Qt/Options/SimpleIntegerOption.h \
+	../Common/Qt/Options/StringOption.h \
     ../Common/Qt/Options/SwitchDateOption.h \
     ../Common/Qt/Options/TimeExpressionOption.h \
     ../Common/Qt/QtJsonTools.h \
-    ../Common/Qt/StringException.h \
     Source/Options/BooleanCheckBox.h \
     Source/Options/ConfigItem.h \
     Source/Options/Divider.h \
@@ -90,15 +92,14 @@ HEADERS += \
     Source/Panels/ConfigSet.h \
     Source/Panels/JsonProgram.h \
     Source/Panels/JsonSettings.h \
-    Source/Panels/PanelList.h \
     Source/Panels/Program.h \
+    Source/Panels/ProgramTab.h \
+    Source/Panels/ProgramTabs.h \
     Source/Panels/RightPanel.h \
     Source/Tools/PersistentSettings.h \
     Source/Tools/Tools.h \
     Source/UI/BoardList.h \
-    Source/UI/MainWindow.h \
-    Source/UI/ProgramListUI.h \
-    Source/UI/SettingListUI.h
+    Source/UI/MainWindow.h
 
 # Default rules for deployment.
 qnx: target.path = /tmp/$${TARGET}/bin

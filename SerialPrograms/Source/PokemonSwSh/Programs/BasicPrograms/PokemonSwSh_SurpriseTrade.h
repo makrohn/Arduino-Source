@@ -16,14 +16,22 @@ namespace PokemonAutomation{
 namespace NintendoSwitch{
 namespace PokemonSwSh{
 
-class SurpriseTrade : public SingleSwitchProgram{
-public:
-    SurpriseTrade();
 
-    virtual void program(SingleSwitchProgramEnvironment& env) const override;
+class SurpriseTrade_Descriptor : public RunnableSwitchProgramDescriptor{
+public:
+    SurpriseTrade_Descriptor();
+};
+
+
+
+class SurpriseTrade : public SingleSwitchProgramInstance{
+public:
+    SurpriseTrade(const SurpriseTrade_Descriptor& descriptor);
+
+    virtual void program(SingleSwitchProgramEnvironment& env) override;
 
 private:
-    void trade_slot(uint8_t slot, bool next_box) const;
+    void trade_slot(const BotBaseContext& context, uint8_t slot, bool next_box) const;
 
 private:
     SimpleInteger<uint8_t> BOXES_TO_TRADE;

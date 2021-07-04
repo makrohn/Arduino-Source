@@ -17,12 +17,20 @@ namespace PokemonAutomation{
 namespace NintendoSwitch{
 namespace PokemonSwSh{
 
-class ShinyHuntAutonomousSwordsOfJustice : public SingleSwitchProgram{
+
+class ShinyHuntAutonomousSwordsOfJustice_Descriptor : public RunnableSwitchProgramDescriptor{
 public:
-    ShinyHuntAutonomousSwordsOfJustice();
+    ShinyHuntAutonomousSwordsOfJustice_Descriptor();
+};
+
+
+
+class ShinyHuntAutonomousSwordsOfJustice : public SingleSwitchProgramInstance{
+public:
+    ShinyHuntAutonomousSwordsOfJustice(const ShinyHuntAutonomousSwordsOfJustice_Descriptor& descriptor);
 
     virtual std::unique_ptr<StatsTracker> make_stats() const override;
-    virtual void program(SingleSwitchProgramEnvironment& env) const override;
+    virtual void program(SingleSwitchProgramEnvironment& env) override;
 
 private:
     struct Stats;
@@ -31,7 +39,8 @@ private:
     BooleanCheckBox AIRPLANE_MODE;
     SimpleInteger<uint8_t> TIME_ROLLBACK_HOURS;
     SectionDivider m_advanced_options;
-    TimeExpression<uint16_t> EXIT_BATTLE_MASH_TIME;
+    TimeExpression<uint16_t> EXIT_BATTLE_TIMEOUT;
+    TimeExpression<uint16_t> POST_BATTLE_MASH_TIME;
     TimeExpression<uint16_t> ENTER_CAMP_DELAY;
     BooleanCheckBox VIDEO_ON_SHINY;
     BooleanCheckBox RUN_FROM_EVERYTHING;

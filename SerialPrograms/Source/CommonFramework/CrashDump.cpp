@@ -5,7 +5,9 @@
  */
 
 #include <time.h>
-#include "Common/Clientside/Unicode.h"
+#include <fstream>
+#include "Common/Cpp/Unicode.h"
+#include "Common/Cpp/PrettyPrint.h"
 //#include "ClientSource/Libraries/Logging.h"
 #include "CrashDump.h"
 
@@ -13,31 +15,9 @@
 using std::cout;
 using std::endl;
 
-namespace PokemonAutomation{
 
-std::string now_to_filestring(){
+
 #if _WIN32 && _MSC_VER
-#pragma warning(disable:4996)
-#endif
-
-    time_t t = time(0);
-    struct tm* now = localtime(&t);
-
-    std::string str;
-    str += std::to_string(now->tm_year + 1900);
-    str += std::string(now->tm_mon + 1 < 10 ? "0" : "") + std::to_string(now->tm_mon + 1);
-    str += std::string(now->tm_mday    < 10 ? "0" : "") + std::to_string(now->tm_mday);
-    str += "-";
-    str += std::string(now->tm_hour    < 10 ? "0" : "") + std::to_string(now->tm_hour);
-    str += std::string(now->tm_min     < 10 ? "0" : "") + std::to_string(now->tm_min);
-    str += std::string(now->tm_sec     < 10 ? "0" : "") + std::to_string(now->tm_sec);
-    return str;
-}
-
-}
-
-
-#if _WIN32
 #pragma comment (lib, "Dbghelp.lib")
 #include <Windows.h>
 #include <winioctl.h>
@@ -52,15 +32,19 @@ long WINAPI crash_handler(EXCEPTION_POINTERS* e){
     }
     handled = true;
 
-    cout << "Oops... Program has crashed." << endl;
-    cout << "Creating mini-dump file..." << endl;
-
     std::string filename = "SerialPrograms-";
     filename += now_to_filestring();
-    filename += ".dmp";
+
+    std::ofstream log;
+    log.open(filename + ".log");
+
+    cout << "Oops... Program has crashed." << endl;
+    cout << "Creating mini-dump file..." << endl;
+    log << "Oops... Program has crashed." << endl;
+    log << "Creating mini-dump file..." << endl;
 
     HANDLE handle = CreateFileW(
-        utf8_to_wstr(filename).c_str(),
+        utf8_to_wstr(filename + ".dmp").c_str(),
         FILE_WRITE_ACCESS,
         FILE_SHARE_READ,
         nullptr,
@@ -69,7 +53,9 @@ long WINAPI crash_handler(EXCEPTION_POINTERS* e){
         0
     );
     if (handle == INVALID_HANDLE_VALUE){
-        cout << "Unable to create dump file: " << GetLastError() << endl;
+        DWORD error = GetLastError();
+        cout << "Unable to create dump file: " << error << endl;
+        log << "Unable to create dump file: " << error << endl;
         return EXCEPTION_EXECUTE_HANDLER;
     }
 
@@ -90,9 +76,12 @@ long WINAPI crash_handler(EXCEPTION_POINTERS* e){
     CloseHandle(handle);
 
     if (!ret){
-        cout << "Unable to create minidump: " << GetLastError() << endl;
+        DWORD error = GetLastError();
+        cout << "Unable to create minidump: " << error << endl;
+        log << "Unable to create minidump: " << error << endl;
     }else{
         cout << "Minidump created!" << endl;
+        log << "Minidump created!" << endl;
     }
 
     return EXCEPTION_CONTINUE_SEARCH;
@@ -107,7 +96,11 @@ void setup_crash_handler(){
 
 }
 #else
+namespace PokemonAutomation{
+
 void setup_crash_handler(){
     //  Not supported
+}
+
 }
 #endif

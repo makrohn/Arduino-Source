@@ -13,13 +13,22 @@ namespace PokemonAutomation{
 namespace NintendoSwitch{
 namespace PokemonSwSh{
 
-EggCombined2::EggCombined2()
-    : SingleSwitchProgram(
-        FeedbackType::NONE, PABotBaseLevel::PABOTBASE_31KB,
+
+EggCombined2_Descriptor::EggCombined2_Descriptor()
+    : RunnableSwitchProgramDescriptor(
+        "PokemonSwSh:EggCombined2",
         "Egg Combined 2",
         "NativePrograms/EggCombined2.md",
-        "Fetch and hatch eggs at the same time. (Fastest - 1700 eggs/day for 5120-step)"
+        "Fetch and hatch eggs at the same time. (Fastest - 1700 eggs/day for 5120-step)",
+        FeedbackType::NONE,
+        PABotBaseLevel::PABOTBASE_31KB
     )
+{}
+
+
+
+EggCombined2::EggCombined2(const EggCombined2_Descriptor& descriptor)
+    : SingleSwitchProgramInstance(descriptor)
     , BOXES_TO_HATCH(
         "<b>Boxes to Hatch:</b>",
         32, 0, 32
@@ -58,7 +67,7 @@ EggCombined2::EggCombined2()
     m_options.emplace_back(&HATCH_DELAY, "HATCH_DELAY");
 }
 
-void EggCombined2::program(SingleSwitchProgramEnvironment& env) const{
+void EggCombined2::program(SingleSwitchProgramEnvironment& env){
     EggCombinedSession session{
         .BOXES_TO_HATCH = BOXES_TO_HATCH,
         .STEPS_TO_HATCH = STEPS_TO_HATCH,
@@ -69,13 +78,13 @@ void EggCombined2::program(SingleSwitchProgramEnvironment& env) const{
         .TOUCH_DATE_INTERVAL = TOUCH_DATE_INTERVAL,
     };
 
-    grip_menu_connect_go_home();
-    resume_game_back_out(TOLERATE_SYSTEM_UPDATE_MENU_FAST, 400);
+    grip_menu_connect_go_home(env.console);
+    resume_game_back_out(env.console, TOLERATE_SYSTEM_UPDATE_MENU_FAST, 400);
 
     session.eggcombined2_body(env);
 
-    end_program_callback();
-    end_program_loop();
+    end_program_callback(env.console);
+    end_program_loop(env.console);
 }
 
 

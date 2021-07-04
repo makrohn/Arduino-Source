@@ -4,7 +4,7 @@
  *
  */
 
-#include "Common/Clientside/PrettyPrint.h"
+#include "Common/Cpp/PrettyPrint.h"
 #include "Common/SwitchFramework/FrameworkSettings.h"
 #include "Common/SwitchFramework/Switch_PushButtons.h"
 #include "Common/PokemonSwSh/PokemonSettings.h"
@@ -21,13 +21,21 @@ namespace NintendoSwitch{
 namespace PokemonSwSh{
 
 
-ShinyHuntAutonomousStrongSpawn::ShinyHuntAutonomousStrongSpawn()
-    : SingleSwitchProgram(
-        FeedbackType::REQUIRED, PABotBaseLevel::PABOTBASE_12KB,
+ShinyHuntAutonomousStrongSpawn_Descriptor::ShinyHuntAutonomousStrongSpawn_Descriptor()
+    : RunnableSwitchProgramDescriptor(
+        "PokemonSwSh:ShinyHuntAutonomousStrongSpawn",
         "Shiny Hunt Autonomous - Strong Spawn",
         "SerialPrograms/ShinyHuntAutonomous-StrongSpawn.md",
-        "Automatically hunt for shiny strong spawns using video feedback."
+        "Automatically hunt for shiny strong spawns using video feedback.",
+        FeedbackType::REQUIRED,
+        PABotBaseLevel::PABOTBASE_12KB
     )
+{}
+
+
+
+ShinyHuntAutonomousStrongSpawn::ShinyHuntAutonomousStrongSpawn(const ShinyHuntAutonomousStrongSpawn_Descriptor& descriptor)
+    : SingleSwitchProgramInstance(descriptor)
     , GO_HOME_WHEN_DONE(
         "<b>Go Home when Done:</b><br>After finding a shiny, go to the Switch Home menu to idle. (turn this off for unattended streaming)",
         false
@@ -38,10 +46,6 @@ ShinyHuntAutonomousStrongSpawn::ShinyHuntAutonomousStrongSpawn()
     )
     , m_advanced_options(
         "<font size=4><b>Advanced Options:</b> You should not need to touch anything below here.</font>"
-    )
-    , EXIT_BATTLE_MASH_TIME(
-        "<b>Exit Battle Time:</b><br>After running, wait this long to return to overworld.",
-        "6 * TICKS_PER_SECOND"
     )
     , VIDEO_ON_SHINY(
         "<b>Video Capture:</b><br>Take a video of the encounter if it is shiny.",
@@ -54,9 +58,8 @@ ShinyHuntAutonomousStrongSpawn::ShinyHuntAutonomousStrongSpawn()
 {
     m_options.emplace_back(&GO_HOME_WHEN_DONE, "GO_HOME_WHEN_DONE");
     m_options.emplace_back(&TIME_ROLLBACK_HOURS, "TIME_ROLLBACK_HOURS");
-    m_options.emplace_back(&m_advanced_options, "");
-    m_options.emplace_back(&EXIT_BATTLE_MASH_TIME, "EXIT_BATTLE_MASH_TIME");
-    if (settings.developer_mode){
+    if (PERSISTENT_SETTINGS().developer_mode){
+        m_options.emplace_back(&m_advanced_options, "");
         m_options.emplace_back(&VIDEO_ON_SHINY, "VIDEO_ON_SHINY");
         m_options.emplace_back(&RUN_FROM_EVERYTHING, "RUN_FROM_EVERYTHING");
     }
@@ -82,33 +85,41 @@ std::unique_ptr<StatsTracker> ShinyHuntAutonomousStrongSpawn::make_stats() const
 
 ShinyHuntAutonomousStrongSpawn::Tracker::Tracker(
     ShinyHuntTracker& stats,
+    ProgramEnvironment& env,
     ConsoleHandle& console,
     bool take_video,
     bool run_from_everything
 )
-    : StandardEncounterTracker(stats, console, false, 0, take_video, run_from_everything)
+    : StandardEncounterTracker(
+        stats, env, console,
+        nullptr, Language::None,
+        false,
+        0,
+        take_video,
+        run_from_everything
+    )
 {}
-bool ShinyHuntAutonomousStrongSpawn::Tracker::run_away(){
-    pbf_press_button(BUTTON_HOME, 10, GAME_TO_HOME_DELAY_SAFE);
+bool ShinyHuntAutonomousStrongSpawn::Tracker::run_away(bool confirmed_encounter){
+    pbf_press_button(m_console, BUTTON_HOME, 10, GAME_TO_HOME_DELAY_SAFE);
     return true;
 }
 
-void ShinyHuntAutonomousStrongSpawn::program(SingleSwitchProgramEnvironment& env) const{
-    grip_menu_connect_go_home();
-//    resume_game_no_interact(TOLERATE_SYSTEM_UPDATE_MENU_FAST);
+void ShinyHuntAutonomousStrongSpawn::program(SingleSwitchProgramEnvironment& env){
+    grip_menu_connect_go_home(env.console);
+//    resume_game_no_interact(env.console, TOLERATE_SYSTEM_UPDATE_MENU_FAST);
 
     const uint32_t PERIOD = (uint32_t)TIME_ROLLBACK_HOURS * 3600 * TICKS_PER_SECOND;
-    uint32_t last_touch = system_clock();
+    uint32_t last_touch = system_clock(env.console);
 
     Stats& stats = env.stats<Stats>();
-    Tracker tracker(stats, env.console, VIDEO_ON_SHINY, RUN_FROM_EVERYTHING);
+    Tracker tracker(stats, env, env.console, VIDEO_ON_SHINY, RUN_FROM_EVERYTHING);
 
     while (true){
         env.update_stats();
 
-        uint32_t now = system_clock();
+        uint32_t now = system_clock(env.console);
         if (TIME_ROLLBACK_HOURS > 0 && now - last_touch >= PERIOD){
-            rollback_hours_from_home(TIME_ROLLBACK_HOURS, SETTINGS_TO_HOME_DELAY);
+            rollback_hours_from_home(env.console, TIME_ROLLBACK_HOURS, SETTINGS_TO_HOME_DELAY);
             last_touch += PERIOD;
         }
         reset_game_from_home_with_inference(
@@ -130,18 +141,18 @@ void ShinyHuntAutonomousStrongSpawn::program(SingleSwitchProgramEnvironment& env
         }
         if (detection == ShinyDetection::NO_BATTLE_MENU){
             stats.m_timeouts++;
-            tracker.run_away();
+            tracker.run_away(false);
         }
     }
 
     env.update_stats();
 
     if (GO_HOME_WHEN_DONE){
-        pbf_press_button(BUTTON_HOME, 10, GAME_TO_HOME_DELAY_SAFE);
+        pbf_press_button(env.console, BUTTON_HOME, 10, GAME_TO_HOME_DELAY_SAFE);
     }
 
-    end_program_callback();
-    end_program_loop();
+    end_program_callback(env.console);
+    end_program_loop(env.console);
 }
 
 

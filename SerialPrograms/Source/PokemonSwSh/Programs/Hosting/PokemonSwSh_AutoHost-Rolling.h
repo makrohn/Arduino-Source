@@ -19,11 +19,20 @@ namespace PokemonAutomation{
 namespace NintendoSwitch{
 namespace PokemonSwSh{
 
-class AutoHostRolling : public SingleSwitchProgram{
-public:
-    AutoHostRolling();
 
-    virtual void program(SingleSwitchProgramEnvironment& env) const override;
+class AutoHostRolling_Descriptor : public RunnableSwitchProgramDescriptor{
+public:
+    AutoHostRolling_Descriptor();
+};
+
+
+
+class AutoHostRolling : public SingleSwitchProgramInstance{
+public:
+    AutoHostRolling(const AutoHostRolling_Descriptor& descriptor);
+
+    virtual std::unique_ptr<StatsTracker> make_stats() const override;
+    virtual void program(SingleSwitchProgramEnvironment& env) override;
 
 private:
     RandomCode RAID_CODE;

@@ -4,7 +4,7 @@
  *
  */
 
-#include "Common/Clientside/PrettyPrint.h"
+#include "Common/Cpp/PrettyPrint.h"
 #include "Common/SwitchFramework/FrameworkSettings.h"
 #include "Common/SwitchFramework/Switch_PushButtons.h"
 #include "Common/PokemonSwSh/PokemonSettings.h"
@@ -21,13 +21,22 @@ namespace PokemonAutomation{
 namespace NintendoSwitch{
 namespace PokemonSwSh{
 
-ShinyHuntAutonomousRegigigas2::ShinyHuntAutonomousRegigigas2()
-    : SingleSwitchProgram(
-        FeedbackType::REQUIRED, PABotBaseLevel::PABOTBASE_12KB,
+
+ShinyHuntAutonomousRegigigas2_Descriptor::ShinyHuntAutonomousRegigigas2_Descriptor()
+    : RunnableSwitchProgramDescriptor(
+        "PokemonSwSh:ShinyHuntAutonomousRegigigas2",
         "Shiny Hunt Autonomous - Regigigas2",
         "SerialPrograms/ShinyHuntAutonomous-Regigigas2.md",
-        "Automatically hunt for shiny Regigigas using video feedback."
+        "Automatically hunt for shiny Regigigas using video feedback.",
+        FeedbackType::REQUIRED,
+        PABotBaseLevel::PABOTBASE_12KB
     )
+{}
+
+
+
+ShinyHuntAutonomousRegigigas2::ShinyHuntAutonomousRegigigas2(const ShinyHuntAutonomousRegigigas2_Descriptor& descriptor)
+    : SingleSwitchProgramInstance(descriptor)
     , GO_HOME_WHEN_DONE(
         "<b>Go Home when Done:</b><br>After finding a shiny, go to the Switch Home menu to idle. (turn this off for unattended streaming)",
         false
@@ -66,7 +75,7 @@ ShinyHuntAutonomousRegigigas2::ShinyHuntAutonomousRegigigas2()
     m_options.emplace_back(&TOUCH_DATE_INTERVAL, "TOUCH_DATE_INTERVAL");
     m_options.emplace_back(&m_advanced_options, "");
     m_options.emplace_back(&CATCH_TO_OVERWORLD_DELAY, "CATCH_TO_OVERWORLD_DELAY");
-    if (settings.developer_mode){
+    if (PERSISTENT_SETTINGS().developer_mode){
         m_options.emplace_back(&VIDEO_ON_SHINY, "VIDEO_ON_SHINY");
         m_options.emplace_back(&RUN_FROM_EVERYTHING, "RUN_FROM_EVERYTHING");
     }
@@ -100,45 +109,51 @@ ShinyHuntAutonomousRegigigas2::Tracker::Tracker(
     bool take_video,
     bool run_from_everything
 )
-    : StandardEncounterTracker(stats, console, require_square, exit_battle_time, take_video, run_from_everything)
+    : StandardEncounterTracker(
+        stats, env, console,
+        nullptr, Language::None,
+        require_square,
+        exit_battle_time,
+        take_video, run_from_everything
+    )
     , m_env(env)
 {}
-bool ShinyHuntAutonomousRegigigas2::Tracker::run_away(){
+bool ShinyHuntAutonomousRegigigas2::Tracker::run_away(bool confirmed_encounter){
     RaidCatchDetector detector(m_console, std::chrono::seconds(30));
-    pbf_mash_button(BUTTON_A, 4 * TICKS_PER_SECOND);
+    pbf_mash_button(m_console, BUTTON_A, 4 * TICKS_PER_SECOND);
 
     if (!detector.wait(m_env)){
         m_env.log("Raid Catch Menu not found.", Qt::red);
         return false;
     }
 
-    pbf_press_dpad(DPAD_DOWN, 10, 0);
-    pbf_press_button(BUTTON_A, 10, m_exit_battle_time);
+    pbf_press_dpad(m_console, DPAD_DOWN, 10, 0);
+    pbf_press_button(m_console, BUTTON_A, 10, m_exit_battle_time);
     return true;
 }
 
 bool ShinyHuntAutonomousRegigigas2::kill_and_return(SingleSwitchProgramEnvironment& env) const{
     RaidCatchDetector detector(env.console, std::chrono::seconds(30));
-    pbf_mash_button(BUTTON_A, 4 * TICKS_PER_SECOND);
+    pbf_mash_button(env.console, BUTTON_A, 4 * TICKS_PER_SECOND);
 
     if (!detector.wait(env)){
         env.log("Raid Catch Menu not found.", Qt::red);
         return false;
     }
 
-    pbf_press_dpad(DPAD_DOWN, 10, 0);
-    pbf_press_button(BUTTON_A, 10, CATCH_TO_OVERWORLD_DELAY);
+    pbf_press_dpad(env.console, DPAD_DOWN, 10, 0);
+    pbf_press_button(env.console, BUTTON_A, 10, CATCH_TO_OVERWORLD_DELAY);
     return true;
 }
-void ShinyHuntAutonomousRegigigas2::program(SingleSwitchProgramEnvironment& env) const{
-    grip_menu_connect_go_home();
+void ShinyHuntAutonomousRegigigas2::program(SingleSwitchProgramEnvironment& env){
+    grip_menu_connect_go_home(env.console);
 
-    uint32_t last_touch = system_clock();
+    uint32_t last_touch = system_clock(env.console);
     if (TOUCH_DATE_INTERVAL > 0){
-        touch_date_from_home(SETTINGS_TO_HOME_DELAY);
+        touch_date_from_home(env.console, SETTINGS_TO_HOME_DELAY);
     }
 
-    resume_game_back_out(TOLERATE_SYSTEM_UPDATE_MENU_FAST, 500);
+    resume_game_back_out(env.console, TOLERATE_SYSTEM_UPDATE_MENU_FAST, 500);
 
     Stats& stats = env.stats<Stats>();
     Tracker tracker(
@@ -156,12 +171,12 @@ void ShinyHuntAutonomousRegigigas2::program(SingleSwitchProgramEnvironment& env)
 
             env.log("Starting Regigigas Encounter: " + tostr_u_commas(stats.encounters() + 1));
 
-            pbf_mash_button(BUTTON_A, 18 * TICKS_PER_SECOND);
+            pbf_mash_button(env.console, BUTTON_A, 18 * TICKS_PER_SECOND);
             env.console.botbase().wait_for_all_requests();
 
-            {
-                StartBattleDetector detector(env.console, std::chrono::seconds(30));
-                detector.wait(env);
+            if (!wait_for_start_battle(env, env.console, std::chrono::seconds(30))){
+                stats.m_timeouts++;
+                break;
             }
 
             ShinyDetection detection = detect_shiny_battle(
@@ -173,15 +188,15 @@ void ShinyHuntAutonomousRegigigas2::program(SingleSwitchProgramEnvironment& env)
             if (tracker.process_result(detection)){
                 goto StopProgram;
             }
-            if (detection == ShinyDetection::NO_BATTLE_MENU || !tracker.run_away()){
+            if (detection == ShinyDetection::NO_BATTLE_MENU || !tracker.run_away(false)){
                 stats.m_timeouts++;
                 break;
             }
         }
 
-        pbf_press_button(BUTTON_HOME, 10, GAME_TO_HOME_DELAY_SAFE);
-        if (TOUCH_DATE_INTERVAL > 0 && system_clock() - last_touch >= TOUCH_DATE_INTERVAL){
-            touch_date_from_home(SETTINGS_TO_HOME_DELAY);
+        pbf_press_button(env.console, BUTTON_HOME, 10, GAME_TO_HOME_DELAY_SAFE);
+        if (TOUCH_DATE_INTERVAL > 0 && system_clock(env.console) - last_touch >= TOUCH_DATE_INTERVAL){
+            touch_date_from_home(env.console, SETTINGS_TO_HOME_DELAY);
             last_touch += TOUCH_DATE_INTERVAL;
         }
         reset_game_from_home_with_inference(
@@ -195,11 +210,11 @@ StopProgram:
     env.update_stats();
 
     if (GO_HOME_WHEN_DONE){
-        pbf_press_button(BUTTON_HOME, 10, GAME_TO_HOME_DELAY_SAFE);
+        pbf_press_button(env.console, BUTTON_HOME, 10, GAME_TO_HOME_DELAY_SAFE);
     }
 
-    end_program_callback();
-    end_program_loop();
+    end_program_callback(env.console);
+    end_program_loop(env.console);
 }
 
 

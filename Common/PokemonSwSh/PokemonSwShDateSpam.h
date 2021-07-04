@@ -20,13 +20,19 @@
 //  Universal
 #define MAX_YEAR    60
 
-#ifdef __cplusplus
+#if 0
 
 //  From the Switch Home (cursor over 1st game), navigate all the way to the
 //  date change button.
 //  If (fast = true), it will run slightly faster, but has a higher chance of
 //  not making all way in. Do this only if the program is able to self-recover.
 void home_to_date_time(bool to_date_change, bool fast);
+
+//  Perform date skip and leave the current date unchanged. You are expected to
+//  press HOME immediately after this function returns.
+//
+//  This function is slower than the other methods of date-spam.
+void neutral_date_skip(void);
 
 //  Call this immediately after calling "home_to_date_time()".
 //  This function will roll the 1st and 3rd slots forward by one.
@@ -77,15 +83,17 @@ void rollback_hours_from_home(uint8_t hours, uint16_t settings_to_home_delay);
 //  Client Side
 #ifdef __cplusplus
 namespace PokemonAutomation{
-    class BotBase;
+    class BotBaseContext;
+
+    void home_to_date_time                      (const BotBaseContext& context, bool to_date_change, bool fast);
+    void neutral_date_skip                      (const BotBaseContext& context);
+    void roll_date_forward_1                    (const BotBaseContext& context, bool fast);
+    void roll_date_backward_N                   (const BotBaseContext& context, uint8_t skips, bool fast);
+    void home_roll_date_enter_game              (const BotBaseContext& context, bool rollback_year);
+    void home_roll_date_enter_game_autorollback (const BotBaseContext& context, uint8_t* year);
+    void touch_date_from_home                   (const BotBaseContext& context, uint16_t settings_to_home_delay);
+    void rollback_hours_from_home               (const BotBaseContext& context, uint8_t hours, uint16_t settings_to_home_delay);
 }
-void home_to_date_time                      (PokemonAutomation::BotBase& device, bool to_date_change, bool fast);
-void roll_date_forward_1                    (PokemonAutomation::BotBase& device, bool fast);
-void roll_date_backward_N                   (PokemonAutomation::BotBase& device, uint8_t skips, bool fast);
-void home_roll_date_enter_game              (PokemonAutomation::BotBase& device, bool rollback_year);
-void home_roll_date_enter_game_autorollback (PokemonAutomation::BotBase& device, uint8_t* year);
-void touch_date_from_home                   (PokemonAutomation::BotBase& device, uint16_t settings_to_home_delay);
-void rollback_hours_from_home               (PokemonAutomation::BotBase& device, uint8_t hours, uint16_t settings_to_home_delay);
 #endif
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
@@ -107,32 +115,37 @@ typedef struct{
     bool fast;
 } PABB_PACK pabb_home_to_date_time;
 
-#define PABB_MSG_COMMAND_ROLL_DATE_FORWARD_1                    0xb5
+#define PABB_MSG_COMMAND_NEUTRAL_DATE_SKIP                      0xb5
+typedef struct{
+    seqnum_t seqnum;
+} PABB_PACK pabb_neutral_date_skip;
+
+#define PABB_MSG_COMMAND_ROLL_DATE_FORWARD_1                    0xb6
 typedef struct{
     seqnum_t seqnum;
     bool fast;
 } PABB_PACK pabb_roll_date_forward_1;
 
-#define PABB_MSG_COMMAND_ROLL_DATE_BACKWARD_N                   0xb6
+#define PABB_MSG_COMMAND_ROLL_DATE_BACKWARD_N                   0xb7
 typedef struct{
     seqnum_t seqnum;
     uint8_t skips;
     bool fast;
 } PABB_PACK pabb_roll_date_backward_N;
 
-#define PABB_MSG_COMMAND_HOME_ROLL_DATE_ENTER_GAME              0xb7
+#define PABB_MSG_COMMAND_HOME_ROLL_DATE_ENTER_GAME              0xb8
 typedef struct{
     seqnum_t seqnum;
     bool rollback_year;
 } PABB_PACK pabb_home_roll_date_enter_game;
 
-#define PABB_MSG_COMMAND_TOUCH_DATE_FROM_HOME                   0xb8
+#define PABB_MSG_COMMAND_TOUCH_DATE_FROM_HOME                   0xb9
 typedef struct{
     seqnum_t seqnum;
     uint16_t settings_to_home_delay;
 } PABB_PACK pabb_touch_date_from_home;
 
-#define PABB_MSG_COMMAND_ROLLBACK_HOURS_FROM_HOME               0xb9
+#define PABB_MSG_COMMAND_ROLLBACK_HOURS_FROM_HOME               0xba
 typedef struct{
     seqnum_t seqnum;
     uint8_t hours;

@@ -11,36 +11,42 @@
 #include <QSize>
 #include <QString>
 #include <QJsonObject>
-#include "Tools/StatsDatabase.h"
+//#include "Tools/StatsDatabase.h"
 
 namespace PokemonAutomation{
 
 
 class PersistentSettings{
 public:
-    PersistentSettings()
-        : log_everything(false)
-    {}
+    PersistentSettings();
 
     void write() const;
     void read();
 
 public:
-//    QString config_path = "GeneratorConfig";
-//    QString source_path = "DeviceSource";
-    QString stats_file = "PA-Stats.txt";
-    QSize window_size = QSize(960, 540);
-    bool naughty_mode = false;
-    bool developer_mode = false;
-    std::atomic<bool> log_everything;
+    QString stats_file;
+//    QSize window_size;
+    uint32_t window_width;
+    uint32_t window_height;
+    bool naughty_mode;
+    bool developer_mode;
+    bool log_everything;
 
-    StatSet stat_sets;
+    QString resource_path;
+    QString training_data;
 
-    QJsonObject settings;
-    QJsonObject programs;
+public:
+    //  Settings Panel
+    QString DISCORD_WEBHOOK_ID;
+    QString DISCORD_WEBHOOK_TOKEN;
+    QString DISCORD_USER_ID;
+    QString DISCORD_USER_SHORT_NAME;
+
+public:
+    QJsonObject panels;
 };
 
-extern PersistentSettings settings;
+PersistentSettings& PERSISTENT_SETTINGS();
 
 
 

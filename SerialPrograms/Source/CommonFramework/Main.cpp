@@ -1,9 +1,9 @@
 
 #include <QApplication>
-#include "Common/Qt/StringException.h"
-#include "Tesseract/capi.h"
+#include "Common/Cpp/Exception.h"
 #include "PersistentSettings.h"
 #include "CrashDump.h"
+#include "Tools/StatsDatabase.h"
 #include "Windows/MainWindow.h"
 
 #include <iostream>
@@ -14,26 +14,32 @@ using std::endl;
 using namespace PokemonAutomation;
 
 
-int main(int argc, char *argv[])
-{
+int main(int argc, char *argv[]){
     setup_crash_handler();
 
     QApplication::setAttribute(Qt::AA_EnableHighDpiScaling);
     QApplication application(argc, argv);
 
-    cout << "Tesseract Version: " << TessVersion() << endl;
-
     try{
-        settings.read();
+        PERSISTENT_SETTINGS().read();
     }catch (const StringException& error){
-        cout << error.message().toUtf8().data() << endl;
+        cout << error.what() << endl;
     }
-//    int* ptr = nullptr;
-//    cout << *ptr << endl;
 
-    MainWindow w;
-    w.show();
-    int ret = application.exec();
-    settings.write();
+#if 0
+    {
+        StatSet stats;
+        stats.open_from_file(PERSISTENT_SETTINGS().stats_file);
+        stats.save_to_file(PERSISTENT_SETTINGS().stats_file);
+    }
+#endif
+
+    int ret;
+    {
+        MainWindow w;
+        w.show();
+        ret = application.exec();
+    }
+    PERSISTENT_SETTINGS().write();
     return ret;
 }

@@ -4,7 +4,7 @@
  *
  */
 
-#include "Common/Clientside/PrettyPrint.h"
+#include "Common/Cpp/PrettyPrint.h"
 #include "Common/SwitchFramework/FrameworkSettings.h"
 #include "Common/SwitchFramework/Switch_PushButtons.h"
 #include "Common/SwitchRoutines/SwitchDigitEntry.h"
@@ -14,19 +14,29 @@
 #include "PokemonSwSh/Programs/PokemonSwSh_StartGame.h"
 #include "PokemonSwSh_DenTools.h"
 #include "PokemonSwSh_LobbyWait.h"
+#include "PokemonSwSh_AutoHostStats.h"
 #include "PokemonSwSh_AutoHost-Rolling.h"
 
 namespace PokemonAutomation{
 namespace NintendoSwitch{
 namespace PokemonSwSh{
 
-AutoHostRolling::AutoHostRolling()
-    : SingleSwitchProgram(
-        FeedbackType::OPTIONAL_, PABotBaseLevel::PABOTBASE_12KB,
+
+AutoHostRolling_Descriptor::AutoHostRolling_Descriptor()
+    : RunnableSwitchProgramDescriptor(
+        "PokemonSwSh:AutoHostRolling",
         "Auto-Host Rolling",
         "NativePrograms/AutoHost-Rolling.md",
-        "Roll N days, host, SR and repeat. Also supports hard-locks and soft-locks."
+        "Roll N days, host, SR and repeat. Also supports hard-locks and soft-locks.",
+        FeedbackType::OPTIONAL_,
+        PABotBaseLevel::PABOTBASE_12KB
     )
+{}
+
+
+
+AutoHostRolling::AutoHostRolling(const AutoHostRolling_Descriptor& descriptor)
+    : SingleSwitchProgramInstance(descriptor)
     , SKIPS("<b>Day Skips:</b>", 3)
     , BACKUP_SAVE("<b>Load Backup Save:</b><br>For backup save soft-locking method.", false)
     , HOST_ONLINE("<b>Host Online:</b>", true)
@@ -107,7 +117,16 @@ AutoHostRolling::AutoHostRolling()
     m_options.emplace_back(&DELAY_TO_SELECT_MOVE, "DELAY_TO_SELECT_MOVE");
 }
 
-void AutoHostRolling::program(SingleSwitchProgramEnvironment& env) const{
+
+
+std::unique_ptr<StatsTracker> AutoHostRolling::make_stats() const{
+    return std::unique_ptr<StatsTracker>(new AutoHostStats());
+}
+
+
+void AutoHostRolling::program(SingleSwitchProgramEnvironment& env){
+    AutoHostStats& stats = env.stats<AutoHostStats>();
+
     uint16_t start_raid_delay = HOST_ONLINE
         ? OPEN_ONLINE_DEN_LOBBY_DELAY
         : OPEN_LOCAL_DEN_LOBBY_DELAY;
@@ -115,32 +134,39 @@ void AutoHostRolling::program(SingleSwitchProgramEnvironment& env) const{
         ? 0
         : LOBBY_WAIT_DELAY - start_raid_delay;
 
-    grip_menu_connect_go_home();
+    grip_menu_connect_go_home(env.console);
 
     uint32_t last_touch = 0;
     if (SKIPS == 0 && TOUCH_DATE_INTERVAL > 0){
-        touch_date_from_home(SETTINGS_TO_HOME_DELAY);
-        last_touch = system_clock();
+        touch_date_from_home(env.console, SETTINGS_TO_HOME_DELAY);
+        last_touch = system_clock(env.console);
     }
-    rollback_date_from_home(SKIPS);
-    resume_game_front_of_den_nowatts(TOLERATE_SYSTEM_UPDATE_MENU_SLOW);
+    rollback_date_from_home(env.console, SKIPS);
+    resume_game_front_of_den_nowatts(env.console, TOLERATE_SYSTEM_UPDATE_MENU_SLOW);
 
     char first = true;
     for (uint32_t raids = 0;; raids++){
         env.log("Raids Completed: " + tostr_u_commas(raids));
+        env.update_stats();
 
-        roll_den(ENTER_ONLINE_DEN_DELAY, OPEN_ONLINE_DEN_LOBBY_DELAY, SKIPS, CATCHABILITY);
+        roll_den(
+            env.console,
+            ENTER_ONLINE_DEN_DELAY,
+            OPEN_ONLINE_DEN_LOBBY_DELAY,
+            SKIPS,
+            CATCHABILITY
+        );
 
         if (HOST_ONLINE){
-            connect_to_internet(OPEN_YCOMM_DELAY, CONNECT_TO_INTERNET_DELAY);
+            connect_to_internet(env.console, OPEN_YCOMM_DELAY, CONNECT_TO_INTERNET_DELAY);
         }
-        enter_den(ENTER_ONLINE_DEN_DELAY, SKIPS != 0, HOST_ONLINE);
+        enter_den(env.console, ENTER_ONLINE_DEN_DELAY, SKIPS != 0, HOST_ONLINE);
 
         //  Don't delay if it's the first iteration.
         if (first){
             first = false;
         }else{
-            pbf_wait(EXTRA_DELAY_BETWEEN_RAIDS);
+            pbf_wait(env.console, EXTRA_DELAY_BETWEEN_RAIDS);
         }
 
         uint8_t code[8];
@@ -150,15 +176,15 @@ void AutoHostRolling::program(SingleSwitchProgramEnvironment& env) const{
                 str[c] = code[c] + '0';
             }
             env.log("Next Raid Code: " + std::string(str, sizeof(str)));
-            pbf_press_button(BUTTON_PLUS, 5, 145);
-            enter_digits(8, code);
-            pbf_wait(180);
-            pbf_press_button(BUTTON_A, 5, 95);
+            pbf_press_button(env.console, BUTTON_PLUS, 5, 145);
+            enter_digits(env.console, 8, code);
+            pbf_wait(env.console, 180);
+            pbf_press_button(env.console, BUTTON_A, 5, 95);
         }
-        enter_lobby(OPEN_ONLINE_DEN_LOBBY_DELAY, HOST_ONLINE, CATCHABILITY);
+        enter_lobby(env.console, OPEN_ONLINE_DEN_LOBBY_DELAY, HOST_ONLINE, CATCHABILITY);
 
         //  Accept friend requests while we wait.
-        raid_lobby_wait(
+        RaidLobbyState raid_state = raid_lobby_wait(
             env.console, env.logger(),
             HOST_ONLINE,
             FRIEND_ACCEPT_USER_SLOT,
@@ -166,26 +192,31 @@ void AutoHostRolling::program(SingleSwitchProgramEnvironment& env) const{
         );
 
         //  Start Raid
-        pbf_press_dpad(DPAD_UP, 5, 45);
+        pbf_press_dpad(env.console, DPAD_UP, 5, 45);
 
         //  Mash A until it's time to close the game.
 #if 1
         {
             env.console.botbase().wait_for_all_requests();
-            uint32_t start = system_clock();
-            pbf_mash_button(BUTTON_A, 3 * TICKS_PER_SECOND);
+            uint32_t start = system_clock(env.console);
+            pbf_mash_button(env.console, BUTTON_A, 3 * TICKS_PER_SECOND);
             env.console.botbase().wait_for_all_requests();
 
-            BlackScreenDetector black_screen(env.console, env.logger());
+            BlackScreenDetector black_screen(env.console);
             uint32_t now = start;
-            while (now - start < RAID_START_TO_EXIT_DELAY){
-                if (black_screen.black_is_over()){
+            while (true){
+                if (black_screen.black_is_over(env.console.video().snapshot())){
                     env.log("Raid has Started!", "blue");
+                    stats.add_raid(raid_state.raiders());
                     break;
                 }
-                pbf_mash_button(BUTTON_A, TICKS_PER_SECOND);
+                if (now - start >= RAID_START_TO_EXIT_DELAY){
+                    stats.add_timeout();
+                    break;
+                }
+                pbf_mash_button(env.console, BUTTON_A, TICKS_PER_SECOND);
                 env.console.botbase().wait_for_all_requests();
-                now = system_clock();
+                now = system_clock(env.console);
             }
         }
 #else
@@ -194,39 +225,39 @@ void AutoHostRolling::program(SingleSwitchProgramEnvironment& env) const{
 
         //  Select a move.
         if (MOVE_SLOT > 0){
-            pbf_wait(DELAY_TO_SELECT_MOVE);
-            pbf_press_button(BUTTON_A, 20, 80);
+            pbf_wait(env.console, DELAY_TO_SELECT_MOVE);
+            pbf_press_button(env.console, BUTTON_A, 20, 80);
             if (DYNAMAX){
-                pbf_press_dpad(DPAD_LEFT, 20, 30);
-                pbf_press_button(BUTTON_A, 20, 60);
+                pbf_press_dpad(env.console, DPAD_LEFT, 20, 30);
+                pbf_press_button(env.console, BUTTON_A, 20, 60);
             }
             for (uint8_t c = 1; c < MOVE_SLOT; c++){
-                pbf_press_dpad(DPAD_DOWN, 20, 30);
+                pbf_press_dpad(env.console, DPAD_DOWN, 20, 30);
             }
-            pbf_press_button(BUTTON_A, 20, 80);
+            pbf_press_button(env.console, BUTTON_A, 20, 80);
 
             // Disable the troll hosting option if the dynamax is set to TRUE.
             if (!DYNAMAX && TROLL_HOSTING > 0){
-                pbf_press_dpad(DPAD_DOWN, 20, 80);
+                pbf_press_dpad(env.console, DPAD_DOWN, 20, 80);
                 for (uint8_t c = 0; c < TROLL_HOSTING; c++){
-                    pbf_press_dpad(DPAD_RIGHT, 20, 80);
+                    pbf_press_dpad(env.console, DPAD_RIGHT, 20, 80);
                 }
             }
 
-            pbf_press_button(BUTTON_A, 20, 980);
+            pbf_press_button(env.console, BUTTON_A, 20, 980);
         }
 
         //  Add a little extra wait time since correctness matters here.
-        ssf_press_button2(BUTTON_HOME, GAME_TO_HOME_DELAY_SAFE, 10);
+        ssf_press_button2(env.console, BUTTON_HOME, GAME_TO_HOME_DELAY_SAFE, 10);
 
-        close_game();
+        close_game(env.console);
 
         //  Touch the date.
-        if (SKIPS == 0 && TOUCH_DATE_INTERVAL > 0 && system_clock() - last_touch >= TOUCH_DATE_INTERVAL){
-            touch_date_from_home(SETTINGS_TO_HOME_DELAY);
+        if (SKIPS == 0 && TOUCH_DATE_INTERVAL > 0 && system_clock(env.console) - last_touch >= TOUCH_DATE_INTERVAL){
+            touch_date_from_home(env.console, SETTINGS_TO_HOME_DELAY);
             last_touch += TOUCH_DATE_INTERVAL;
         }
-        rollback_date_from_home(SKIPS);
+        rollback_date_from_home(env.console, SKIPS);
 
         start_game_from_home_with_inference(
             env, env.console,
@@ -236,8 +267,8 @@ void AutoHostRolling::program(SingleSwitchProgramEnvironment& env) const{
         );
     }
 
-    end_program_callback();
-    end_program_loop();
+    end_program_callback(env.console);
+    end_program_loop(env.console);
 }
 
 

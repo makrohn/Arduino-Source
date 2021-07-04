@@ -4,8 +4,8 @@
  *
  */
 
-#ifndef PokemonAutomation_FriendCodeAdder_H
-#define PokemonAutomation_FriendCodeAdder_H
+#ifndef PokemonAutomation_NintendoSwitch_FriendCodeAdder_H
+#define PokemonAutomation_NintendoSwitch_FriendCodeAdder_H
 
 #include "CommonFramework/Options/SectionDivider.h"
 #include "CommonFramework/Options/SimpleInteger.h"
@@ -17,11 +17,17 @@ namespace PokemonAutomation{
 namespace NintendoSwitch{
 
 
-class FriendCodeAdder : public SingleSwitchProgram{
+class FriendCodeAdder_Descriptor : public RunnableSwitchProgramDescriptor{
 public:
-    FriendCodeAdder();
+    FriendCodeAdder_Descriptor();
+};
 
-    virtual void program(SingleSwitchProgramEnvironment& env) const override;
+
+class FriendCodeAdder : public SingleSwitchProgramInstance{
+public:
+    FriendCodeAdder(const FriendCodeAdder_Descriptor& descriptor);
+
+    virtual void program(SingleSwitchProgramEnvironment& env) override;
 
 private:
     SimpleInteger<uint8_t> USER_SLOT;

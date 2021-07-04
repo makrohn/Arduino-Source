@@ -18,29 +18,37 @@ namespace PokemonAutomation{
 namespace NintendoSwitch{
 namespace PokemonSwSh{
 
-class ShinyHuntAutonomousStrongSpawn : public SingleSwitchProgram{
+
+class ShinyHuntAutonomousStrongSpawn_Descriptor : public RunnableSwitchProgramDescriptor{
 public:
-    ShinyHuntAutonomousStrongSpawn();
+    ShinyHuntAutonomousStrongSpawn_Descriptor();
+};
+
+
+
+class ShinyHuntAutonomousStrongSpawn : public SingleSwitchProgramInstance{
+public:
+    ShinyHuntAutonomousStrongSpawn(const ShinyHuntAutonomousStrongSpawn_Descriptor& descriptor);
 
     virtual std::unique_ptr<StatsTracker> make_stats() const override;
-    virtual void program(SingleSwitchProgramEnvironment& env) const override;
+    virtual void program(SingleSwitchProgramEnvironment& env) override;
 
 private:
     struct Stats;
     struct Tracker : public StandardEncounterTracker{
         Tracker(
             ShinyHuntTracker& stats,
+            ProgramEnvironment& env,
             ConsoleHandle& console,
             bool take_video,
             bool run_from_everything
         );
-        virtual bool run_away() override;
+        virtual bool run_away(bool confirmed_encounter) override;
     };
 
     BooleanCheckBox GO_HOME_WHEN_DONE;
     SimpleInteger<uint8_t> TIME_ROLLBACK_HOURS;
     SectionDivider m_advanced_options;
-    TimeExpression<uint16_t> EXIT_BATTLE_MASH_TIME;
     BooleanCheckBox VIDEO_ON_SHINY;
     BooleanCheckBox RUN_FROM_EVERYTHING;
 };
